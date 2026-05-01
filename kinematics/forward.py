@@ -17,7 +17,6 @@ import numpy as np
 from dataclasses import dataclass
 
 from kinematics.dh import dh_matrix
-from core.utils import red
 
 # Parámetros geométricos del robot (constantes hardcodeadas en el MATLAB original)
 L1: float = 5.0
@@ -113,14 +112,14 @@ def forward_kinematics(
 
     return ForwardKinematicsResult(
         joints_deg=[
-            red(np.rad2deg(q1)),
-            red(np.rad2deg(q2)),
-            red(np.rad2deg(q3)),
-            red(np.rad2deg(q4)),
-            red(np.rad2deg(q5)),
-            red(np.rad2deg(q6)),
+            round(np.rad2deg(q1), 2),
+            round(np.rad2deg(q2), 2),
+            round(np.rad2deg(q3), 2),
+            round(np.rad2deg(q4), 2),
+            round(np.rad2deg(q5), 2),
+            round(np.rad2deg(q6), 2),
         ],
-        position={"px": red(px), "py": red(py), "pz": red(pz)},
+        position={"px": round(px, 2), "py": round(py, 2), "pz": round(pz, 2)},
         orientation={"alpha": alpha, "beta": beta, "gamma": gamma},
         links=[
             {"from": [0.0,  0.0,  0.0], "to": [x1, y1, z1]},  # base → junta 1
