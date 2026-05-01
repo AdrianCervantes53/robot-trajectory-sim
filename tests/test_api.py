@@ -15,22 +15,25 @@ import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from fastapi.testclient import TestClient
-from api.main import app, robot_state
+from api.main import app
 from kinematics.forward import forward_kinematics
 
 
+@pytest.fixture(scope="module")
+def client():
+    with TestClient(app) as test_client:
+        yield test_client
+
+
 @pytest.fixture(autouse=True)
-def reset_state():
+def reset_state(client):
     """Resetea el estado global del robot a home antes de cada test."""
     from core.state import RobotState
-    from api import main as api_module
+    from api.routers import trajectory as trajectory_router
 
-    api_module.robot_state.__dict__.update(RobotState.from_home().__dict__)
-    api_module._saved_trajectories.clear()
+    client.app.state.robot_state = RobotState.from_home()
+    trajectory_router._saved_trajectories.clear()
     yield
-
-
-client = TestClient(app)
 
 
 # ─────────────────────────────────────────────────────────────
@@ -38,17 +41,17 @@ client = TestClient(app)
 # ─────────────────────────────────────────────────────────────
 
 class TestGetState:
-    def test_retorna_200(self):
+    def test_retorna_200(self, client):
         r = client.get("/state")
         assert r.status_code == 200
 
-    def test_tiene_claves_requeridas(self):
+    def test_tiene_claves_requeridas(self, client):
         r = client.get("/state")
         data = r.json()
         for key in ["joints_deg", "position", "links", "trajectory", "gripper_open"]:
             assert key in data
 
-    def test_home_tiene_6_angulos(self):
+    def test_home_tiene_6_angulos(self, client):
         r = client.get("/state")
         assert len(r.json()["joints_deg"]) == 6
 
@@ -58,29 +61,29 @@ class TestGetState:
 # ─────────────────────────────────────────────────────────────
 
 class TestMoveJoints:
-    def test_mueve_a_angulos_dados(self):
+    def test_mueve_a_angulos_dados(self, client):
         r = client.post("/joints", json={"joints_deg": [30, 20, 10, 0, 0, 0]})
         assert r.status_code == 200
         data = r.json()
         assert data["joints_deg"][0] == pytest.approx(30.0, abs=0.1)
         assert data["joints_deg"][1] == pytest.approx(20.0, abs=0.1)
 
-    def test_actualiza_posicion(self):
+    def test_actualiza_posicion(self, client):
         fk = forward_kinematics(30, 20, 10, 0, 0, 0)
         r = client.post("/joints", json={"joints_deg": [30, 20, 10, 0, 0, 0]})
         data = r.json()
         assert data["position"]["px"] == pytest.approx(fk.position["px"], abs=0.1)
 
-    def test_graba_punto_en_trayectoria(self):
+    def test_graba_punto_en_trayectoria(self, client):
         client.post("/joints", json={"joints_deg": [30, 20, 10, 0, 0, 0]})
         r = client.get("/state")
         assert len(r.json()["trajectory"]) >= 1
 
-    def test_menos_de_6_angulos_falla(self):
+    def test_menos_de_6_angulos_falla(self, client):
         r = client.post("/joints", json={"joints_deg": [30, 20]})
         assert r.status_code == 422
 
-    def test_mas_de_6_angulos_falla(self):
+    def test_mas_de_6_angulos_falla(self, client):
         r = client.post("/joints", json={"joints_deg": [0]*7})
         assert r.status_code == 422
 
@@ -95,12 +98,12 @@ class TestMovePose:
         fk = forward_kinematics(30, 20, 10, 0, 0, 0)
         return fk.position
 
-    def test_mueve_a_pose_alcanzable(self):
+    def test_mueve_a_pose_alcanzable(self, client):
         pos = self._reachable_pose()
         r = client.post("/pose", json=pos)
         assert r.status_code == 200
 
-    def test_retorna_posicion_aproximada(self):
+    def test_retorna_posicion_aproximada(self, client):
         pos = self._reachable_pose()
         r = client.post("/pose", json=pos)
         data = r.json()
@@ -108,11 +111,11 @@ class TestMovePose:
         assert data["position"]["py"] == pytest.approx(pos["py"], abs=0.5)
         assert data["position"]["pz"] == pytest.approx(pos["pz"], abs=0.5)
 
-    def test_singularidad_retorna_422(self):
+    def test_singularidad_retorna_422(self, client):
         r = client.post("/pose", json={"px": 999, "py": 999, "pz": 999})
         assert r.status_code == 422
 
-    def test_422_tiene_detalle(self):
+    def test_422_tiene_detalle(self, client):
         r = client.post("/pose", json={"px": 999, "py": 999, "pz": 999})
         assert "detail" in r.json()
 
@@ -122,12 +125,12 @@ class TestMovePose:
 # ─────────────────────────────────────────────────────────────
 
 class TestGripper:
-    def test_cerrar_gripper(self):
+    def test_cerrar_gripper(self, client):
         r = client.post("/gripper", json={"open": False})
         assert r.status_code == 200
         assert r.json()["gripper_open"] is False
 
-    def test_abrir_gripper(self):
+    def test_abrir_gripper(self, client):
         client.post("/gripper", json={"open": False})
         r = client.post("/gripper", json={"open": True})
         assert r.json()["gripper_open"] is True
@@ -138,22 +141,22 @@ class TestGripper:
 # ─────────────────────────────────────────────────────────────
 
 class TestConfig:
-    def test_actualiza_velocidad(self):
+    def test_actualiza_velocidad(self, client):
         r = client.post("/config", json={"velocity_pct": 75})
         assert r.status_code == 200
         assert r.json()["velocity_pct"] == 75.0
 
-    def test_actualiza_duracion(self):
+    def test_actualiza_duracion(self, client):
         r = client.post("/config", json={"trajectory_duration": 3.5})
         assert r.json()["trajectory_duration"] == 3.5
 
-    def test_actualiza_ambos(self):
+    def test_actualiza_ambos(self, client):
         r = client.post("/config", json={"velocity_pct": 20, "trajectory_duration": 1.5})
         data = r.json()
         assert data["velocity_pct"] == 20.0
         assert data["trajectory_duration"] == 1.5
 
-    def test_velocity_fuera_de_rango(self):
+    def test_velocity_fuera_de_rango(self, client):
         r = client.post("/config", json={"velocity_pct": 150})
         assert r.status_code == 422
 
@@ -163,41 +166,41 @@ class TestConfig:
 # ─────────────────────────────────────────────────────────────
 
 class TestSavedTrajectories:
-    def _seed_trajectory(self):
+    def _seed_trajectory(self, client):
         """Mueve el robot para generar historial."""
         client.post("/joints", json={"joints_deg": [30, 20, 10, 0, 0, 0]})
         client.post("/joints", json={"joints_deg": [45, 30, 15, 0, 0, 0]})
 
-    def test_guardar_trayectoria(self):
-        self._seed_trajectory()
-        r = client.post("/trajectory/save", json={"name": "test_traj"})
+    def test_guardar_trayectoria(self, client):
+        self._seed_trajectory(client)
+        r = client.post("/trajectory/trajectory/save", json={"name": "test_traj"})
         assert r.status_code == 200
         assert r.json()["saved"] == "test_traj"
 
-    def test_guardar_sin_historial_falla(self):
-        r = client.post("/trajectory/save", json={"name": "vacia"})
+    def test_guardar_sin_historial_falla(self, client):
+        r = client.post("/trajectory/trajectory/save", json={"name": "vacia"})
         assert r.status_code == 400
 
-    def test_listar_trayectorias(self):
-        self._seed_trajectory()
-        client.post("/trajectory/save", json={"name": "traj_a"})
+    def test_listar_trayectorias(self, client):
+        self._seed_trajectory(client)
+        client.post("/trajectory/trajectory/save", json={"name": "traj_a"})
         r = client.get("/trajectory/list")
         assert "traj_a" in r.json()["trajectories"]
 
-    def test_cargar_trayectoria(self):
-        self._seed_trajectory()
-        client.post("/trajectory/save", json={"name": "mi_traj"})
+    def test_cargar_trayectoria(self, client):
+        self._seed_trajectory(client)
+        client.post("/trajectory/trajectory/save", json={"name": "mi_traj"})
         client.post("/trajectory/clear")
         r = client.post("/trajectory/load", json={"name": "mi_traj"})
         assert r.status_code == 200
         assert r.json()["points"] >= 1
 
-    def test_cargar_inexistente_falla(self):
+    def test_cargar_inexistente_falla(self, client):
         r = client.post("/trajectory/load", json={"name": "no_existe"})
         assert r.status_code == 404
 
-    def test_clear_vacia_historial(self):
-        self._seed_trajectory()
+    def test_clear_vacia_historial(self, client):
+        self._seed_trajectory(client)
         client.post("/trajectory/clear")
         r = client.get("/state")
         assert r.json()["trajectory"] == []
@@ -208,7 +211,7 @@ class TestSavedTrajectories:
 # ─────────────────────────────────────────────────────────────
 
 class TestWebSocket:
-    def test_ptp_emite_frames(self):
+    def test_ptp_emite_frames(self, client):
         with client.websocket_connect("/ws") as ws:
             ws.send_text(json.dumps({
                 "type": "ptp",
@@ -223,7 +226,7 @@ class TestWebSocket:
             assert len(frames) >= 2
             assert frames[-1]["frame_type"] == "trajectory_end"
 
-    def test_ptp_frames_tienen_estructura_correcta(self):
+    def test_ptp_frames_tienen_estructura_correcta(self, client):
         with client.websocket_connect("/ws") as ws:
             ws.send_text(json.dumps({
                 "type": "ptp",
@@ -239,7 +242,7 @@ class TestWebSocket:
                 if data["frame_type"] in ("trajectory_end", "error"):
                     break
 
-    def test_linear_emite_frames(self):
+    def test_linear_emite_frames(self, client):
         fk = forward_kinematics(45, 30, 15, 0, 0, 0)
         p_end = [fk.position["px"], fk.position["py"], fk.position["pz"]]
         with client.websocket_connect("/ws") as ws:
@@ -252,13 +255,13 @@ class TestWebSocket:
                     break
             assert len(frames) >= 1
 
-    def test_tipo_invalido_retorna_error(self):
+    def test_tipo_invalido_retorna_error(self, client):
         with client.websocket_connect("/ws") as ws:
             ws.send_text(json.dumps({"type": "desconocido"}))
             data = json.loads(ws.receive_text())
             assert data["frame_type"] == "error"
 
-    def test_ptp_singularidad_retorna_error(self):
+    def test_ptp_singularidad_retorna_error(self, client):
         """
         IK inalcanzable durante trayectoria → frame de error en algún momento.
         El primer frame puede ser válido (posición inicial alcanzable),
