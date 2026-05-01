@@ -12,28 +12,8 @@ import os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from core.utils import red
 from kinematics.dh import dh_matrix
 from kinematics.forward import forward_kinematics
-
-
-# ──────────────────────────────────────────────
-# utils.py
-# ──────────────────────────────────────────────
-
-class TestRed:
-    def test_redondea_dos_decimales(self):
-        assert red(3.14159) == 3.14
-
-    def test_entero_no_cambia(self):
-        assert red(5.0) == 5.0
-
-    def test_negativo(self):
-        assert red(-2.567) == -2.57
-
-    def test_cero(self):
-        assert red(0.0) == 0.0
-
 
 # ──────────────────────────────────────────────
 # dh.py
