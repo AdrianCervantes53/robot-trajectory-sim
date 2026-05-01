@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Robot 6-DOF — Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #080b10;
+    --surface:   #0d1117;
+    --border:    #1c2333;
+    --border2:   #243044;
+    --cyan:      #00e5ff;
+    --cyan-dim:  #005f6b;
+    --amber:     #ffb700;
+    --red:       #ff4757;
+    --green:     #00ff88;
+    --text:      #8899aa;
+    --text-hi:   #c8d8e8;
+    --text-lo:   #3a4a5a;
+    --link1:     #ff5252;   /* eslabón 1 */
+    --link2:     #00b4d8;   /* eslabón 2 */
+    --link3:     #06d6a0;   /* eslabón 3 */
+    --font-mono: 'JetBrains Mono', monospace;
+    --font-disp: 'Syne', sans-serif;
+  }
+
+  html, body { width: 100%; height: 100%; background: var(--bg); overflow: hidden; }
+
+  body {
+    display: grid;
+    grid-template-rows: 44px 1fr 28px;
+    grid-template-columns: 1fr 300px;
+    font-family: var(--font-mono);
+    color: var(--text);
+  }
+
+  /* ── Top bar ─────────────────────────────────────────── */
+  #topbar {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 0 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+  #topbar h1 {
+    font-family: var(--font-disp);
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--cyan);
+    margin-right: 8px;
+  }
+  .topbar-tag {
+    font-size: 10px;
+    letter-spacing: .1em;
+    padding: 2px 8px;
+    border: 1px solid var(--border2);
+    color: var(--text-lo);
+    text-transform: uppercase;
+  }
+  #conn-status {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 10px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+  .dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--red);
+    box-shadow: 0 0 6px var(--red);
+    transition: background .3s, box-shadow .3s;
+  }
+  .dot.on  { background: var(--green); box-shadow: 0 0 8px var(--green); }
+  .dot.run { background: var(--amber); box-shadow: 0 0 8px var(--amber);
+             animation: blink .6s ease-in-out infinite; }
+  @keyframes blink { 50% { opacity: .3; } }
+
+  /* ── Viewport 3D ─────────────────────────────────────── */
+  #viewport {
+    position: relative;
+    overflow: hidden;
+    background: var(--bg);
+  }
+  #c { width: 100%; height: 100%; display: block; }
+
+  /* Overlay coords */
+  #hud {
+    position: absolute;
+    top: 12px; left: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    pointer-events: none;
+  }
+  .hud-row {
+    font-size: 11px;
+    color: var(--text-lo);
+    letter-spacing: .06em;
+  }
+  .hud-row span { color: var(--cyan); font-weight: 500; }
+
+  /* ── Control panel ───────────────────────────────────── */
+  #panel {
+    border-left: 1px solid var(--border);
+    background: var(--surface);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .panel-section {
+    border-bottom: 1px solid var(--border);
+    padding: 10px 12px;
+  }
+  .section-title {
+    font-size: 9px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--text-lo);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* Sliders de junta */
+  .joint-row {
+    display: grid;
+    grid-template-columns: 22px 1fr 44px;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+  .joint-label {
+    font-size: 10px;
+    color: var(--text-lo);
+    text-align: right;
+  }
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 2px;
+    background: var(--border2);
+    border-radius: 0;
+    outline: none;
+    cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 12px; height: 12px;
+    background: var(--cyan);
+    border-radius: 0;
+    cursor: pointer;
+    box-shadow: 0 0 6px var(--cyan);
+  }
+  .joint-val {
+    font-size: 10px;
+    color: var(--text-hi);
+    text-align: right;
+    letter-spacing: .04em;
+  }
+
+  /* Pose inputs */
+  .pose-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 4px;
+    margin-bottom: 6px;
+  }
+  .pose-field label {
+    display: block;
+    font-size: 9px;
+    color: var(--text-lo);
+    letter-spacing: .08em;
+    margin-bottom: 2px;
+  }
+  .pose-field input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border2);
+    color: var(--text-hi);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 4px 6px;
+    outline: none;
+    transition: border-color .2s;
+  }
+  .pose-field input:focus { border-color: var(--cyan); }
+
+  /* Botones */
+  .btn-row { display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap; }
+  .btn {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    padding: 5px 10px;
+    border: 1px solid var(--border2);
+    background: transparent;
+    color: var(--text);
+    cursor: pointer;
+    transition: all .15s;
+    flex: 1;
+    min-width: 60px;
+  }
+  .btn:hover { border-color: var(--cyan); color: var(--cyan); background: rgba(0,229,255,.04); }
+  .btn.primary { border-color: var(--cyan-dim); color: var(--cyan); }
+  .btn.primary:hover { background: var(--cyan); color: var(--bg); box-shadow: 0 0 12px var(--cyan); }
+  .btn.danger { border-color: #3a1515; color: var(--red); }
+  .btn.danger:hover { background: var(--red); color: var(--bg); }
+  .btn:disabled { opacity: .3; cursor: not-allowed; }
+
+  /* Trayectorias — campos extra */
+  .traj-extra { display: none; margin-top: 6px; }
+  .traj-extra.visible { display: block; }
+  .traj-select {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border2);
+    color: var(--text-hi);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 4px 6px;
+    outline: none;
+    margin-bottom: 4px;
+  }
+
+  /* Estado en vivo */
+  .live-table { width: 100%; border-collapse: collapse; font-size: 10px; }
+  .live-table td { padding: 3px 0; vertical-align: top; }
+  .live-table td:first-child { color: var(--text-lo); width: 28px; }
+  .live-table td:last-child  { color: var(--text-hi); text-align: right; font-size: 11px; }
+
+  /* Gripper */
+  .gripper-btn {
+    width: 100%;
+    padding: 7px;
+    text-align: center;
+    font-size: 10px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    border: 1px solid var(--border2);
+    background: transparent;
+    color: var(--text);
+    font-family: var(--font-mono);
+    cursor: pointer;
+    transition: all .2s;
+  }
+  .gripper-btn.open   { border-color: var(--green); color: var(--green); }
+  .gripper-btn.closed { border-color: var(--amber); color: var(--amber); }
+
+  /* Scrollable para el panel */
+  #panel-scroll { flex: 1; overflow-y: auto; }
+  #panel-scroll::-webkit-scrollbar { width: 3px; }
+  #panel-scroll::-webkit-scrollbar-thumb { background: var(--border2); }
+
+  /* ── Status bar ──────────────────────────────────────── */
+  #statusbar {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 0 14px;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    font-size: 9px;
+    letter-spacing: .06em;
+    color: var(--text-lo);
+  }
+  #statusbar .sep { color: var(--border2); }
+  #status-msg { margin-left: auto; color: var(--text); transition: color .3s; }
+  #status-msg.ok  { color: var(--green); }
+  #status-msg.err { color: var(--red);   }
+
+  /* Legend */
+  .legend { display: flex; gap: 10px; align-items: center; }
+  .leg { display: flex; align-items: center; gap: 4px; font-size: 9px; }
+  .leg-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+  /* Saved list */
+  #saved-list { list-style: none; margin-top: 4px; }
+  #saved-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 3px 0;
+    font-size: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  #saved-list li:last-child { border-bottom: none; }
+  #saved-list .load-btn {
+    font-size: 9px; color: var(--cyan); cursor: pointer;
+    background: none; border: none; font-family: var(--font-mono);
+    letter-spacing: .08em;
+  }
+  #saved-list .load-btn:hover { text-decoration: underline; }
+
+  .config-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    margin-bottom: 4px;
+  }
+</style>
+</head>
+<body>
+
+<!-- ── Top bar ──────────────────────────────────────── -->
+<header id="topbar">
+  <h1>RoboSim</h1>
+  <span class="topbar-tag">6-DOF</span>
+  <span class="topbar-tag">Kinematic Simulator</span>
+  <div id="conn-status">
+    <div class="dot" id="ws-dot"></div>
+    <span id="ws-label">Disconnected</span>
+  </div>
+</header>
+
+<!-- ── 3D Viewport ──────────────────────────────────── -->
+<main id="viewport">
+  <canvas id="c"></canvas>
+  <div id="hud">
+    <div class="hud-row">EF &nbsp;<span id="h-px">—</span> &nbsp;<span id="h-py">—</span> &nbsp;<span id="h-pz">—</span></div>
+    <div class="hud-row" style="margin-top:2px">
+      <span style="color:var(--link1)">■</span> L1 &nbsp;
+      <span style="color:var(--link2)">■</span> L2 &nbsp;
+      <span style="color:var(--link3)">■</span> L3
+    </div>
+  </div>
+</main>
+
+<!-- ── Control panel ────────────────────────────────── -->
+<aside id="panel">
+<div id="panel-scroll">
+
+  <!-- Juntas manuales -->
+  <div class="panel-section">
+    <div class="section-title">Juntas</div>
+    <div id="joints-ctrl"></div>
+    <div class="btn-row">
+      <button class="btn" onclick="sendHome()">Home</button>
+      <button class="btn danger" onclick="clearTraj()">Clear traj</button>
+    </div>
+  </div>
+
+  <!-- Pose cartesiana -->
+  <div class="panel-section">
+    <div class="section-title">Pose (IK)</div>
+    <div class="pose-grid">
+      <div class="pose-field"><label>PX</label><input type="number" id="ip-px" step="0.1" value="10"></div>
+      <div class="pose-field"><label>PY</label><input type="number" id="ip-py" step="0.1" value="0"></div>
+      <div class="pose-field"><label>PZ</label><input type="number" id="ip-pz" step="0.1" value="5"></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn primary" onclick="sendPose()">Move to pose</button>
+    </div>
+  </div>
+
+  <!-- Trayectorias -->
+  <div class="panel-section">
+    <div class="section-title">Trayectorias</div>
+
+    <div class="btn-row" style="margin-bottom:6px">
+      <button class="btn" id="btn-ptp" onclick="selectTraj('ptp')">PTP</button>
+      <button class="btn" id="btn-lin" onclick="selectTraj('lin')">LIN</button>
+      <button class="btn" id="btn-cir" onclick="selectTraj('cir')">CIR</button>
+    </div>
+
+    <!-- PTP target -->
+    <div id="extra-ptp" class="traj-extra">
+      <div class="pose-grid">
+        <div class="pose-field"><label>q1 °</label><input type="number" id="ptp-q1" value="45"></div>
+        <div class="pose-field"><label>q2 °</label><input type="number" id="ptp-q2" value="30"></div>
+        <div class="pose-field"><label>q3 °</label><input type="number" id="ptp-q3" value="20"></div>
+      </div>
+      <div class="pose-grid">
+        <div class="pose-field"><label>q4 °</label><input type="number" id="ptp-q4" value="0"></div>
+        <div class="pose-field"><label>q5 °</label><input type="number" id="ptp-q5" value="0"></div>
+        <div class="pose-field"><label>q6 °</label><input type="number" id="ptp-q6" value="0"></div>
+      </div>
+    </div>
+
+    <!-- LIN target -->
+    <div id="extra-lin" class="traj-extra">
+      <div class="pose-grid">
+        <div class="pose-field"><label>PX</label><input type="number" id="lin-px" step="0.1" value="0"></div>
+        <div class="pose-field"><label>PY</label><input type="number" id="lin-py" step="0.1" value="5"></div>
+        <div class="pose-field"><label>PZ</label><input type="number" id="lin-pz" step="0.1" value="8"></div>
+      </div>
+    </div>
+
+    <!-- CIR target -->
+    <div id="extra-cir" class="traj-extra">
+      <div style="font-size:9px;color:var(--text-lo);margin-bottom:4px;letter-spacing:.06em">PUNTO MEDIO</div>
+      <div class="pose-grid">
+        <div class="pose-field"><label>PX</label><input type="number" id="cir-mx" step="0.1" value="4"></div>
+        <div class="pose-field"><label>PY</label><input type="number" id="cir-my" step="0.1" value="4"></div>
+        <div class="pose-field"><label>PZ</label><input type="number" id="cir-mz" step="0.1" value="5"></div>
+      </div>
+      <div style="font-size:9px;color:var(--text-lo);margin-bottom:4px;letter-spacing:.06em">PUNTO FINAL</div>
+      <div class="pose-grid">
+        <div class="pose-field"><label>PX</label><input type="number" id="cir-fx" step="0.1" value="7"></div>
+        <div class="pose-field"><label>PY</label><input type="number" id="cir-fy" step="0.1" value="0"></div>
+        <div class="pose-field"><label>PZ</label><input type="number" id="cir-fz" step="0.1" value="5"></div>
+      </div>
+      <div class="pose-field" style="margin-bottom:4px">
+        <label>Plano</label>
+        <select class="traj-select" id="cir-plane">
+          <option value="1">XY (plano 1)</option>
+          <option value="2">XZ (plano 2)</option>
+          <option value="3">YZ (plano 3)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="btn-row" style="margin-top:6px">
+      <button class="btn primary" id="btn-run" onclick="runTrajectory()" disabled>Run</button>
+      <button class="btn" onclick="stopTrajectory()">Stop</button>
+    </div>
+  </div>
+
+  <!-- Configuración -->
+  <div class="panel-section">
+    <div class="section-title">Config</div>
+    <div class="config-row">
+      <div class="pose-field"><label>Vel % (PTP)</label><input type="number" id="cfg-vel" value="50" min="0" max="100"></div>
+      <div class="pose-field"><label>Duración (s)</label><input type="number" id="cfg-dur" value="2" min="0.1" step="0.1"></div>
+    </div>
+    <button class="btn" style="width:100%" onclick="sendConfig()">Apply config</button>
+  </div>
+
+  <!-- Gripper -->
+  <div class="panel-section">
+    <div class="section-title">Gripper</div>
+    <button class="gripper-btn open" id="gripper-btn" onclick="toggleGripper()">● Open</button>
+  </div>
+
+  <!-- Estado en vivo -->
+  <div class="panel-section">
+    <div class="section-title">Estado</div>
+    <table class="live-table">
+      <tr><td>q1</td><td id="lv-q1">—</td></tr>
+      <tr><td>q2</td><td id="lv-q2">—</td></tr>
+      <tr><td>q3</td><td id="lv-q3">—</td></tr>
+      <tr><td>q4</td><td id="lv-q4">—</td></tr>
+      <tr><td>q5</td><td id="lv-q5">—</td></tr>
+      <tr><td>q6</td><td id="lv-q6">—</td></tr>
+      <tr><td colspan="2" style="padding-top:6px"></td></tr>
+      <tr><td>px</td><td id="lv-px">—</td></tr>
+      <tr><td>py</td><td id="lv-py">—</td></tr>
+      <tr><td>pz</td><td id="lv-pz">—</td></tr>
+    </table>
+  </div>
+
+  <!-- Guardar / cargar trayectorias -->
+  <div class="panel-section">
+    <div class="section-title">Guardar trayectoria</div>
+    <div class="pose-field" style="margin-bottom:4px">
+      <label>Nombre</label>
+      <input type="text" id="traj-name" placeholder="mi_trayectoria"
+             style="width:100%;background:var(--bg);border:1px solid var(--border2);color:var(--text-hi);font-family:var(--font-mono);font-size:11px;padding:4px 6px;outline:none">
+    </div>
+    <div class="btn-row">
+      <button class="btn" onclick="saveTraj()">Save</button>
+      <button class="btn" onclick="listTraj()">Refresh</button>
+    </div>
+    <ul id="saved-list"></ul>
+  </div>
+
+</div><!-- /panel-scroll -->
+</aside>
+
+<!-- ── Status bar ────────────────────────────────────── -->
+<footer id="statusbar">
+  <span>RoboSim v1.0</span>
+  <span class="sep">|</span>
+  <span>6-DOF Articulated</span>
+  <span class="sep">|</span>
+  <span>L1=L2=L3=5</span>
+  <span id="status-msg">Connecting…</span>
+</footer>
+
+<!-- ── Scripts ───────────────────────────────────────── -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════
+// CONFIG
+// ═══════════════════════════════════════════════════════
+const API  = 'http://localhost:8000';
+const WS   = 'ws://localhost:8000/ws';
+const SC   = 18;   // escala: unidades MATLAB → unidades Three.js
+
+// ═══════════════════════════════════════════════════════
+// THREE.JS — SETUP
+// ═══════════════════════════════════════════════════════
+const canvas   = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+renderer.setPixelRatio(devicePixelRatio);
+renderer.setClearColor(0x080b10, 1);
+renderer.shadowMap.enabled = true;
+
+const scene  = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 2000);
+camera.position.set(160, 120, 180);
+
+const controls = new THREE.OrbitControls(camera, canvas);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.target.set(0, 40, 0);
+controls.update();
+
+// Fog suave
+scene.fog = new THREE.FogExp2(0x080b10, 0.0018);
+
+// Luces
+scene.add(new THREE.AmbientLight(0x8899cc, 0.4));
+const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+dirLight.position.set(100, 200, 100);
+scene.add(dirLight);
+const pointCyan = new THREE.PointLight(0x00e5ff, 1.2, 300);
+pointCyan.position.set(0, 80, 0);
+scene.add(pointCyan);
+
+// Grid
+const grid = new THREE.GridHelper(400, 40, 0x1c2333, 0x141b26);
+scene.add(grid);
+
+// Ejes pequeños en la base
+const axMat = (col) => new THREE.LineBasicMaterial({ color: col });
+const axLine = (from, to, mat) => {
+  const g = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(...from), new THREE.Vector3(...to)
+  ]);
+  return new THREE.Line(g, mat);
+};
+scene.add(axLine([0,0,0],[20,0,0], axMat(0xff3344)));
+scene.add(axLine([0,0,0],[0,20,0], axMat(0x00ff88)));
+scene.add(axLine([0,0,0],[0,0,20], axMat(0x4488ff)));
+
+// Base del robot (cilindro decorativo)
+const baseGeo = new THREE.CylinderGeometry(8, 10, 6, 16);
+const baseMat = new THREE.MeshStandardMaterial({ color: 0x1c2a3a, metalness: .8, roughness: .4 });
+const baseMesh = new THREE.Mesh(baseGeo, baseMat);
+baseMesh.position.set(0, 3, 0);
+scene.add(baseMesh);
+
+// ── Eslabones ─────────────────────────────────────────
+const LINK_COLORS = [0xff5252, 0x00b4d8, 0x06d6a0];
+const JOINT_COL   = 0xffffff;
+const RADIUS      = 3;
+
+// Crea un cilindro posicionable
+function makeLinkMesh(color) {
+  const geo = new THREE.CylinderGeometry(RADIUS, RADIUS, 1, 12);
+  const mat = new THREE.MeshStandardMaterial({
+    color, metalness: .5, roughness: .35,
+    emissive: color, emissiveIntensity: .12,
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  scene.add(mesh);
+  return mesh;
+}
+
+// Crea esfera de junta
+function makeJointMesh() {
+  const geo = new THREE.SphereGeometry(RADIUS * 1.2, 12, 12);
+  const mat = new THREE.MeshStandardMaterial({
+    color: JOINT_COL, metalness: .9, roughness: .1, emissive: 0x334455, emissiveIntensity: .5
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  scene.add(mesh);
+  return mesh;
+}
+
+const linkMeshes  = LINK_COLORS.map(makeLinkMesh);
+const jointMeshes = [0,1,2,3].map(makeJointMesh);  // base + 3 juntas intermedias + EF
+
+// Gripper geometry (dos dedos)
+const gripperGroup = new THREE.Group();
+const gMat = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: .7, roughness: .3 });
+const fingerGeo = new THREE.BoxGeometry(2, 8, 2);
+[-3, 3].forEach(x => {
+  const f = new THREE.Mesh(fingerGeo, gMat);
+  f.position.x = x;
+  gripperGroup.add(f);
+});
+scene.add(gripperGroup);
+
+// Trail del EF
+const MAX_TRAIL = 1000;
+const trailPositions = new Float32Array(MAX_TRAIL * 3);
+const trailGeo = new THREE.BufferGeometry();
+trailGeo.setAttribute('position', new THREE.BufferAttribute(trailPositions, 3));
+const trailMat = new THREE.LineBasicMaterial({ color: 0xffb700, linewidth: 2, transparent: true, opacity: .7 });
+const trailLine = new THREE.Line(trailGeo, trailMat);
+trailLine.frustumCulled = false;
+scene.add(trailLine);
+let trailCount = 0;
+
+// ── Función de actualización del robot ──────────────
+// Convierte coordenadas MATLAB [x,y,z] → Three.js [x·SC, z·SC, -y·SC]
+// (MATLAB: Z=arriba → Three.js: Y=arriba)
+function matlabToThree(p) {
+  return new THREE.Vector3(p[0] * SC, p[2] * SC, -p[1] * SC);
+}
+
+function positionCylinder(mesh, from3, to3) {
+  const dir = new THREE.Vector3().subVectors(to3, from3);
+  const len = dir.length();
+  if (len < 0.001) return;
+  const mid = new THREE.Vector3().addVectors(from3, to3).multiplyScalar(0.5);
+  mesh.position.copy(mid);
+  mesh.scale.set(1, len, 1);
+  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), dir.normalize());
+}
+
+function updateRobot(links, trajectory) {
+  // links: [{from:[x,y,z], to:[x,y,z]}, ...]
+  const pts = [
+    matlabToThree(links[0].from),
+    matlabToThree(links[0].to),
+    matlabToThree(links[1].to),
+    matlabToThree(links[2].to),
+  ];
+
+  // Juntas
+  pts.forEach((p, i) => {
+    if (jointMeshes[i]) jointMeshes[i].position.copy(p);
+  });
+
+  // Eslabones
+  positionCylinder(linkMeshes[0], pts[0], pts[1]);
+  positionCylinder(linkMeshes[1], pts[1], pts[2]);
+  positionCylinder(linkMeshes[2], pts[2], pts[3]);
+
+  // Gripper en el EF
+  const ef = pts[3];
+  gripperGroup.position.copy(ef);
+
+  // HUD
+  const pos3 = matlabToThree([links[2].to[0], links[2].to[1], links[2].to[2]]);
+  document.getElementById('h-px').textContent = links[2].to[0].toFixed(2);
+  document.getElementById('h-py').textContent = links[2].to[1].toFixed(2);
+  document.getElementById('h-pz').textContent = links[2].to[2].toFixed(2);
+
+  // Trail
+  if (trajectory && trajectory.length > 0) {
+    const n = Math.min(trajectory.length, MAX_TRAIL);
+    for (let i = 0; i < n; i++) {
+      const p = matlabToThree([trajectory[i].px, trajectory[i].py, trajectory[i].pz]);
+      trailPositions[i*3]   = p.x;
+      trailPositions[i*3+1] = p.y;
+      trailPositions[i*3+2] = p.z;
+    }
+    trailGeo.setDrawRange(0, n);
+    trailGeo.attributes.position.needsUpdate = true;
+    trailCount = n;
+  }
+}
+
+// ── Render loop ───────────────────────────────────────
+function onResize() {
+  const w = canvas.parentElement.clientWidth;
+  const h = canvas.parentElement.clientHeight;
+  renderer.setSize(w, h);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', onResize);
+onResize();
+
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene, camera);
+}
+animate();
+
+// ═══════════════════════════════════════════════════════
+// UI — SLIDERS DE JUNTA
+// ═══════════════════════════════════════════════════════
+const JOINT_LIMITS = [
+  [-180, 180], [-90, 90], [-90, 90],
+  [-180, 180], [-90, 90], [-180, 180]
+];
+
+const sliders = [];
+const jointCtrl = document.getElementById('joints-ctrl');
+
+JOINT_LIMITS.forEach(([mn, mx], i) => {
+  const row = document.createElement('div');
+  row.className = 'joint-row';
+  row.innerHTML = `
+    <span class="joint-label">q${i+1}</span>
+    <input type="range" min="${mn}" max="${mx}" value="0" step="1" id="sl-${i}">
+    <span class="joint-val" id="sv-${i}">0°</span>
+  `;
+  jointCtrl.appendChild(row);
+
+  const sl = row.querySelector(`#sl-${i}`);
+  const sv = row.querySelector(`#sv-${i}`);
+  sl.addEventListener('input', () => {
+    sv.textContent = sl.value + '°';
+    debouncedSendJoints();
+  });
+  sliders.push(sl);
+});
+
+let _joTimer = null;
+function debouncedSendJoints() {
+  clearTimeout(_joTimer);
+  _joTimer = setTimeout(sendJoints, 60);
+}
+
+async function sendJoints() {
+  const joints_deg = sliders.map(s => parseFloat(s.value));
+  try {
+    const r = await fetch(`${API}/joints`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ joints_deg })
+    });
+    const data = await r.json();
+    applyState(data);
+  } catch(e) { setStatus('Error al mover juntas', 'err'); }
+}
+
+// ═══════════════════════════════════════════════════════
+// APLICAR ESTADO
+// ═══════════════════════════════════════════════════════
+function applyState(data) {
+  if (data.links && data.links.length === 3) {
+    updateRobot(data.links, data.trajectory);
+  }
+
+  // Actualizar sliders sin disparar el evento
+  if (data.joints_deg) {
+    data.joints_deg.forEach((q, i) => {
+      if (sliders[i]) {
+        sliders[i].value = Math.round(q);
+        const sv = document.getElementById(`sv-${i}`);
+        if (sv) sv.textContent = Math.round(q) + '°';
+      }
+    });
+  }
+
+  // Tabla de estado en vivo
+  if (data.joints_deg) {
+    data.joints_deg.forEach((q, i) => {
+      const el = document.getElementById(`lv-q${i+1}`);
+      if (el) el.textContent = q.toFixed(1) + '°';
+    });
+  }
+  if (data.position) {
+    document.getElementById('lv-px').textContent = data.position.px?.toFixed(2) ?? '—';
+    document.getElementById('lv-py').textContent = data.position.py?.toFixed(2) ?? '—';
+    document.getElementById('lv-pz').textContent = data.position.pz?.toFixed(2) ?? '—';
+  }
+
+  // Gripper
+  if (data.gripper_open !== undefined) {
+    const btn = document.getElementById('gripper-btn');
+    btn.textContent = data.gripper_open ? '● Open' : '● Closed';
+    btn.className = 'gripper-btn ' + (data.gripper_open ? 'open' : 'closed');
+    _gripperOpen = data.gripper_open;
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// REST ACTIONS
+// ═══════════════════════════════════════════════════════
+async function sendPose() {
+  const body = {
+    px: parseFloat(document.getElementById('ip-px').value),
+    py: parseFloat(document.getElementById('ip-py').value),
+    pz: parseFloat(document.getElementById('ip-pz').value),
+  };
+  try {
+    const r = await fetch(`${API}/pose`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(body)
+    });
+    if (!r.ok) {
+      const err = await r.json();
+      setStatus('Singularidad: ' + err.detail, 'err');
+      return;
+    }
+    const data = await r.json();
+    applyState(data);
+    setStatus('Pose aplicada', 'ok');
+  } catch(e) { setStatus('Error de conexión', 'err'); }
+}
+
+async function sendHome() {
+  try {
+    const r = await fetch(`${API}/joints`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ joints_deg: [0,0,0,0,0,0] })
+    });
+    applyState(await r.json());
+    setStatus('Home', 'ok');
+  } catch(e) {}
+}
+
+async function clearTraj() {
+  await fetch(`${API}/trajectory/clear`, { method: 'POST' });
+  trailGeo.setDrawRange(0, 0);
+  trailGeo.attributes.position.needsUpdate = true;
+  trailCount = 0;
+  setStatus('Trayectoria limpiada', 'ok');
+}
+
+let _gripperOpen = true;
+async function toggleGripper() {
+  _gripperOpen = !_gripperOpen;
+  const r = await fetch(`${API}/gripper`, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ open: _gripperOpen })
+  });
+  applyState(await r.json());
+}
+
+async function sendConfig() {
+  const vel = parseFloat(document.getElementById('cfg-vel').value);
+  const dur = parseFloat(document.getElementById('cfg-dur').value);
+  await fetch(`${API}/config`, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ velocity_pct: vel, trajectory_duration: dur })
+  });
+  setStatus('Config aplicada', 'ok');
+}
+
+async function saveTraj() {
+  const name = document.getElementById('traj-name').value.trim();
+  if (!name) { setStatus('Escribe un nombre primero', 'err'); return; }
+  const r = await fetch(`${API}/trajectory/save`, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ name })
+  });
+  if (r.ok) { setStatus(`Guardada: ${name}`, 'ok'); listTraj(); }
+  else { const e = await r.json(); setStatus(e.detail, 'err'); }
+}
+
+async function listTraj() {
+  const r = await fetch(`${API}/trajectory/list`);
+  const data = await r.json();
+  const ul = document.getElementById('saved-list');
+  ul.innerHTML = '';
+  data.trajectories.forEach(name => {
+    const li = document.createElement('li');
+    li.innerHTML = `<span>${name}</span>
+      <button class="load-btn" onclick="loadTraj('${name}')">load</button>`;
+    ul.appendChild(li);
+  });
+}
+
+async function loadTraj(name) {
+  const r = await fetch(`${API}/trajectory/load`, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ name })
+  });
+  if (r.ok) setStatus(`Cargada: ${name}`, 'ok');
+}
+
+// ═══════════════════════════════════════════════════════
+// TRAYECTORIAS — selector UI
+// ═══════════════════════════════════════════════════════
+let _selectedTraj = null;
+
+function selectTraj(type) {
+  _selectedTraj = type;
+  ['ptp','lin','cir'].forEach(t => {
+    document.getElementById(`btn-${t}`).style.borderColor =
+      t === type ? 'var(--cyan)' : '';
+    document.getElementById(`btn-${t}`).style.color =
+      t === type ? 'var(--cyan)' : '';
+    document.getElementById(`extra-${t}`).classList.toggle('visible', t === type);
+  });
+  document.getElementById('btn-run').disabled = false;
+  setStatus(`Trayectoria ${type.toUpperCase()} seleccionada`, 'ok');
+}
+
+// ═══════════════════════════════════════════════════════
+// WEBSOCKET
+// ═══════════════════════════════════════════════════════
+let ws = null;
+let _running = false;
+
+function connectWS() {
+  ws = new WebSocket(WS);
+
+  ws.onopen = () => {
+    setDot('on');
+    setStatus('Conectado', 'ok');
+  };
+
+  ws.onmessage = (evt) => {
+    const frame = JSON.parse(evt.data);
+    if (frame.frame_type === 'error') {
+      setStatus('Error: ' + frame.detail, 'err');
+      setDot('on');
+      _running = false;
+      return;
+    }
+    applyState(frame);
+    if (frame.frame_type === 'trajectory_end') {
+      setDot('on');
+      _running = false;
+      setStatus('Trayectoria completada', 'ok');
+    }
+  };
+
+  ws.onerror = () => setStatus('Error WebSocket', 'err');
+
+  ws.onclose = () => {
+    setDot('off');
+    setStatus('Desconectado — reintentando…', '');
+    setTimeout(connectWS, 2000);
+  };
+}
+
+function runTrajectory() {
+  if (!_selectedTraj) { setStatus('Selecciona una trayectoria', 'err'); return; }
+  if (!ws || ws.readyState !== WebSocket.OPEN) { setStatus('WebSocket no conectado', 'err'); return; }
+  if (_running) return;
+
+  let msg;
+  if (_selectedTraj === 'ptp') {
+    msg = {
+      type: 'ptp',
+      q_end: [
+        parseFloat(document.getElementById('ptp-q1').value),
+        parseFloat(document.getElementById('ptp-q2').value),
+        parseFloat(document.getElementById('ptp-q3').value),
+        parseFloat(document.getElementById('ptp-q4').value),
+        parseFloat(document.getElementById('ptp-q5').value),
+        parseFloat(document.getElementById('ptp-q6').value),
+      ]
+    };
+  } else if (_selectedTraj === 'lin') {
+    msg = {
+      type: 'linear',
+      p_end: [
+        parseFloat(document.getElementById('lin-px').value),
+        parseFloat(document.getElementById('lin-py').value),
+        parseFloat(document.getElementById('lin-pz').value),
+      ]
+    };
+  } else if (_selectedTraj === 'cir') {
+    msg = {
+      type: 'circular',
+      p_mid: [
+        parseFloat(document.getElementById('cir-mx').value),
+        parseFloat(document.getElementById('cir-my').value),
+        parseFloat(document.getElementById('cir-mz').value),
+      ],
+      p_end: [
+        parseFloat(document.getElementById('cir-fx').value),
+        parseFloat(document.getElementById('cir-fy').value),
+        parseFloat(document.getElementById('cir-fz').value),
+      ],
+      plane: parseInt(document.getElementById('cir-plane').value),
+    };
+  }
+
+  _running = true;
+  setDot('run');
+  setStatus(`Ejecutando ${_selectedTraj.toUpperCase()}…`, '');
+  ws.send(JSON.stringify(msg));
+}
+
+function stopTrajectory() {
+  // El WS es unidireccional durante la trayectoria — cerrar y reconectar
+  if (ws) ws.close();
+  _running = false;
+  setStatus('Detenido', 'err');
+}
+
+// ═══════════════════════════════════════════════════════
+// UTILS UI
+// ═══════════════════════════════════════════════════════
+function setDot(state) {
+  const dot = document.getElementById('ws-dot');
+  const lbl = document.getElementById('ws-label');
+  dot.className = 'dot ' + (state === 'on' ? 'on' : state === 'run' ? 'run' : '');
+  lbl.textContent = state === 'on' ? 'Connected' : state === 'run' ? 'Running' : 'Disconnected';
+}
+
+function setStatus(msg, type) {
+  const el = document.getElementById('status-msg');
+  el.textContent = msg;
+  el.className = type === 'ok' ? 'ok' : type === 'err' ? 'err' : '';
+}
+
+// ═══════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════
+async function init() {
+  try {
+    const r = await fetch(`${API}/state`);
+    const data = await r.json();
+    applyState(data);
+    setStatus('Estado inicial cargado', 'ok');
+  } catch(e) {
+    setStatus('API no disponible', 'err');
+  }
+  connectWS();
+}
+
+init();
+</script>
+</body>
+</html>
