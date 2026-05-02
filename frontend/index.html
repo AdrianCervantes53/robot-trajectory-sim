@@ -503,11 +503,14 @@
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script>
 // ═══════════════════════════════════════════════════════
-// CONFIG
+// CONFIG — URLs derived from the server that served this
+// page so the app works from any device on the network.
 // ═══════════════════════════════════════════════════════
-const API  = 'http://localhost:8000';
-const WS   = 'ws://localhost:8000/ws';
-const SC   = 18;   // escala: unidades MATLAB → unidades Three.js
+const _host = window.location.hostname;
+const _port = window.location.port || '8000';
+const API   = `${window.location.protocol}//${_host}:${_port}`;
+const WS    = `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${_host}:${_port}/ws`;
+const SC    = 18;   // escala: unidades MATLAB → unidades Three.js
 
 // ═══════════════════════════════════════════════════════
 // THREE.JS — SETUP
