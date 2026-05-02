@@ -27,6 +27,14 @@ robot_sim/
 │   ├── linear.py         # Trayectoria lineal cartesiana
 │   └── circular.py       # Arco circular por 3 puntos
 ├── api/
+│   ├── routers               # Endpoints
+│   │   ├── movement.py       #
+│   │   ├── trajectory.py     #
+│   │   └── ws_trajectory.py  # 
+│   ├── schemas               # Esquemas de pydantic
+│   │   ├── movement.py       #
+│   │   └── trajectory.py     # 
+│   ├── dependencies.py   # Dependencias del estado del robot
 │   └── main.py           # FastAPI REST + WebSocket
 ├── frontend/
 │   └── index.html        # Interfaz 3D (Three.js, sin dependencias locales)
