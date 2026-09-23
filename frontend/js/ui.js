@@ -1,4 +1,4 @@
-/**
+﻿/**
  * ui.js
  * DOM helpers: joint sliders, status bar, WebSocket indicator.
  *
@@ -19,7 +19,7 @@ export const JOINT_LIMITS = [
   [-180, 180],
 ];
 
-/** Live references to each joint's <input type="range"> element. */
+/** Live references to each joint <input type="range"> element. */
 export const sliders = [];
 
 /**
@@ -35,7 +35,7 @@ export function buildSliders(onChange) {
     row.innerHTML = `
       <span class="joint-label">q${i + 1}</span>
       <input type="range" min="${min}" max="${max}" value="0" step="1" id="sl-${i}">
-      <span class="joint-val" id="sv-${i}">0°</span>
+      <span class="joint-val" id="sv-${i}">0 deg</span>
     `;
     container.appendChild(row);
 
@@ -43,7 +43,7 @@ export function buildSliders(onChange) {
     const sv = row.querySelector(`#sv-${i}`);
 
     sl.addEventListener('input', () => {
-      sv.textContent = `${sl.value}°`;
+      sv.textContent = `${sl.value} deg`;
       onChange(sliders.map(s => parseFloat(s.value)));
     });
 
@@ -61,7 +61,7 @@ export function setSlider(index, valueDeg) {
   const rounded = Math.round(valueDeg);
   if (sliders[index]) sliders[index].value = rounded;
   const sv = document.getElementById(`sv-${index}`);
-  if (sv) sv.textContent = `${rounded}°`;
+  if (sv) sv.textContent = `${rounded} deg`;
 }
 
 /**

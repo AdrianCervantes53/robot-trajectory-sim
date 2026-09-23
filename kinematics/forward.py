@@ -1,16 +1,11 @@
-"""
+﻿"""
 forward.py
-Cinemática directa del robot de 6 DOF.
+Forward kinematics for 6-DOF articulated robot.
 
-MATLAB equivalente: fcdirecta.m
-Nota: este módulo contiene SOLO la matemática. El graficado y el
-control de Arduino son responsabilidad del frontend y de hardware/arduino.py.
-
-Configuración del robot
------------------------
-L1 = 5  (altura de la base, desplazamiento d del eslabón 1)
-L2 = 5  (longitud del eslabón 2)
-L3 = 5  (longitud del eslabón 3)
+Robot Geometry:
+L1 = 5.0 (base height)
+L2 = 5.0 (link 2 length)
+L3 = 5.0 (link 3 length)
 """
 
 import numpy as np
@@ -18,7 +13,6 @@ from dataclasses import dataclass
 
 from kinematics.dh import dh_matrix
 
-# Parámetros geométricos del robot (constantes hardcodeadas en el MATLAB original)
 L1: float = 5.0
 L2: float = 5.0
 L3: float = 5.0
@@ -27,27 +21,22 @@ L3: float = 5.0
 @dataclass
 class ForwardKinematicsResult:
     """
-    Resultado de la cinemática directa.
+    Forward kinematics computation result.
 
-    Atributos
-    ---------
+    Attributes
+    ----------
     joints_deg : list[float]
-        Ángulos de las 6 juntas en grados (redondeados).
+        6 joint angles in degrees.
     position : dict
-        Posición del efector final {"px", "py", "pz"} redondeada.
+        End-effector position {"px", "py", "pz"}.
     orientation : dict
-        Orientación del EF en ángulos ZYX {"alpha", "beta", "gamma"} en radianes.
+        End-effector orientation in ZYX Euler angles {"alpha", "beta", "gamma"} in radians.
     links : list[dict]
-        Segmentos del robot para graficar. Cada dict tiene "from" y "to"
-        como listas [x, y, z]. Útil para Three.js.
+        Robot segments for rendering [{"from": [x,y,z], "to": [x,y,z]}, ...].
     transform : list[list[float]]
-        Matriz de transformación homogénea T (4x4) completa.
-    A1 : np.ndarray
-        Matriz de transformación del eslabón 1 (necesaria para cinemática inversa).
-    A2 : np.ndarray
-        Matriz de transformación acumulada hasta el eslabón 2.
-    A3 : np.ndarray
-        Matriz de transformación acumulada hasta el eslabón 3.
+        Full 4x4 homogeneous transformation matrix T.
+    A1, A2, A3 : np.ndarray
+        Link DH transformation matrices.
     """
     joints_deg: list
     position: dict
@@ -68,17 +57,17 @@ def forward_kinematics(
     q6_deg: float,
 ) -> ForwardKinematicsResult:
     """
-    Calcula la cinemática directa del robot.
+    Computes forward kinematics for the 6-DOF robot.
 
-    Parámetros
+    Parameters
     ----------
     q1_deg .. q6_deg : float
-        Ángulos de las 6 juntas en GRADOS.
+        Joint angles in degrees.
 
-    Retorna
+    Returns
     -------
     ForwardKinematicsResult
-        Posición, orientación, segmentos para graficar y matrices DH.
+        Position, orientation, link segments, and DH matrices.
     """
     q1 = np.deg2rad(q1_deg)
     q2 = np.deg2rad(q2_deg)
@@ -87,7 +76,7 @@ def forward_kinematics(
     q5 = np.deg2rad(q5_deg)
     q6 = np.deg2rad(q6_deg)
 
-    # Matrices DH individuales (mismos parámetros que fcdirecta.m)
+    # Individual DH matrices
     A1 = dh_matrix(q1, L1, 0,  np.pi / 2)
     A2 = dh_matrix(q2, 0,  L2, 0)
     A3 = dh_matrix(q3, 0,  L3, 0)
@@ -95,36 +84,36 @@ def forward_kinematics(
     A5 = dh_matrix(q5, 0,  0, -np.pi / 2)
     A6 = dh_matrix(q6, 0,  0,  0)
 
-    # Transformaciones acumuladas
+    # Accumulated transformations
     A21 = A1 @ A2
     A321 = A21 @ A3
     T = A321 @ A4 @ A5 @ A6
 
-    # Posición de cada junta (para graficar los eslabones)
+    # Joint positions for drawing link segments
     x1, y1, z1 = A1[0, 3], A1[1, 3], A1[2, 3]
     x2, y2, z2 = A21[0, 3], A21[1, 3], A21[2, 3]
     px, py, pz = T[0, 3], T[1, 3], T[2, 3]
 
-    # Orientación del efector final (ángulos de Euler ZYX)
-    alpha = np.arctan2(T[2, 1], T[1, 1])   # roll
-    beta  = np.arctan2(-T[0, 1], np.sqrt(T[1, 1]**2 + T[2, 1]**2))  # pitch
-    gamma = np.arctan2(T[0, 2], T[0, 0])   # yaw
+    # End-effector orientation (ZYX Euler angles: T = Rz(alpha)*Ry(beta)*Rx(gamma))
+    alpha = np.arctan2(T[1, 0], T[0, 0])                                 # yaw   (Z)
+    beta  = np.arctan2(-T[2, 0], np.sqrt(T[0, 0]**2 + T[1, 0]**2))      # pitch (Y)
+    gamma = np.arctan2(T[2, 1], T[2, 2])                                  # roll  (X)
 
     return ForwardKinematicsResult(
         joints_deg=[
-            round(np.rad2deg(q1), 2),
-            round(np.rad2deg(q2), 2),
-            round(np.rad2deg(q3), 2),
-            round(np.rad2deg(q4), 2),
-            round(np.rad2deg(q5), 2),
-            round(np.rad2deg(q6), 2),
+            round(float(np.rad2deg(q1)), 2),
+            round(float(np.rad2deg(q2)), 2),
+            round(float(np.rad2deg(q3)), 2),
+            round(float(np.rad2deg(q4)), 2),
+            round(float(np.rad2deg(q5)), 2),
+            round(float(np.rad2deg(q6)), 2),
         ],
-        position={"px": round(px, 2), "py": round(py, 2), "pz": round(pz, 2)},
-        orientation={"alpha": alpha, "beta": beta, "gamma": gamma},
+        position={"px": round(float(px), 2), "py": round(float(py), 2), "pz": round(float(pz), 2)},
+        orientation={"alpha": float(alpha), "beta": float(beta), "gamma": float(gamma)},
         links=[
-            {"from": [0.0,  0.0,  0.0], "to": [x1, y1, z1]},  # base → junta 1
-            {"from": [x1,   y1,   z1],  "to": [x2, y2, z2]},  # junta 1 → 2
-            {"from": [x2,   y2,   z2],  "to": [px, py, pz]},  # junta 2 → EF
+            {"from": [0.0,  0.0,  0.0], "to": [float(x1), float(y1), float(z1)]},
+            {"from": [float(x1), float(y1), float(z1)], "to": [float(x2), float(y2), float(z2)]},
+            {"from": [float(x2), float(y2), float(z2)], "to": [float(px), float(py), float(pz)]},
         ],
         transform=T.tolist(),
         A1=A1,

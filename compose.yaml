@@ -1,0 +1,20 @@
+services:
+  api:
+    build:
+      context: .
+      target: base
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  api-dev:
+    profiles: ["dev"]
+    build:
+      context: .
+      target: dev
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./:/app
+    restart: unless-stopped
+

@@ -62,7 +62,7 @@ export async function postGripper(open) {
 
 /**
  * Updates robot motion configuration.
- * @param {number} velocity_pct - Speed percentage (0–100).
+ * @param {number} velocity_pct - Speed percentage (0-100).
  * @param {number} trajectory_duration - Duration in seconds.
  */
 export async function postConfig(velocity_pct, trajectory_duration) {

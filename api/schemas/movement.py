@@ -1,32 +1,36 @@
-from pydantic import BaseModel, Field
+﻿from pydantic import BaseModel, Field
+
 
 class JointsRequest(BaseModel):
-    """Mover el robot a ángulos de junta específicos (cinemática directa)."""
+    """Move robot to specific joint angles (forward kinematics)."""
     joints_deg: list[float] = Field(
         ...,
         min_length=6,
         max_length=6,
-        description="Ángulos [q1..q6] en GRADOS.",
+        description="Joint angles [q1..q6] in degrees.",
         examples=[[45, 30, 20, 0, 0, 0]],
     )
 
+
 class PoseRequest(BaseModel):
-    """Mover el EF a una pose cartesiana (cinemática inversa)."""
-    px: float = Field(..., description="Posición X del efector final.")
-    py: float = Field(..., description="Posición Y del efector final.")
-    pz: float = Field(..., description="Posición Z del efector final.")
+    """Move end-effector to Cartesian coordinates (inverse kinematics)."""
+    px: float = Field(..., description="Target X coordinate.")
+    py: float = Field(..., description="Target Y coordinate.")
+    pz: float = Field(..., description="Target Z coordinate.")
+
 
 class GripperRequest(BaseModel):
-    """Controlar el gripper."""
-    open: bool = Field(..., description="True = abrir, False = cerrar.")
+    """Control gripper state."""
+    open: bool = Field(..., description="True = open, False = closed.")
+
 
 class ConfigRequest(BaseModel):
-    """Actualizar parámetros de velocidad y duración de trayectorias."""
+    """Update speed and duration parameters for trajectories."""
     velocity_pct: float | None = Field(
         None, ge=0, le=100,
-        description="Velocidad PTP 0-100 (0=lento, 100=rápido).",
+        description="PTP speed percentage (0=slow, 100=fast).",
     )
     trajectory_duration: float | None = Field(
         None, gt=0,
-        description="Duración LIN/CIR en segundos.",
+        description="LIN/CIR duration in seconds.",
     )

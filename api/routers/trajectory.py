@@ -1,13 +1,8 @@
+﻿"""
+trajectory.py
+REST router for trajectory storage and playback operations.
 """
-routers/trajectory.py
 
-Endpoints REST (operaciones de trayecoria)
------------------------------------------
-POST /trajectory/save         → guardar trayectoria grabada como JSON
-POST /trajectory/load         → cargar y ejecutar una trayectoria guardada
-POST /trajectory/clear        → limpiar historial de trayectoria
-
-"""
 from fastapi import APIRouter, HTTPException, Depends
 
 from api.schemas.trajectory import SaveTrajectoryRequest, LoadTrajectoryRequest
@@ -16,45 +11,40 @@ from core.state import RobotState
 
 router = APIRouter(prefix="/trajectory", tags=["Trajectory"])
 
-# Almacén en memoria de trayectorias guardadas
-# (en producción → base de datos o archivos JSON en disco)
+# In-memory storage for saved trajectories
 _saved_trajectories: dict[str, list] = {}
 
-@router.post("/trajectory/save", summary="Guardar trayectoria grabada")
+
+@router.post("/save", summary="Save recorded trajectory")
+@router.post("/trajectory/save", summary="Save recorded trajectory (compatibility alias)")
 def save_trajectory(req: SaveTrajectoryRequest, robot_state: RobotState = Depends(get_robot_state)) -> dict:
-    """
-    Guarda el historial de posiciones del EF (robot_state.trajectory)
-    bajo el nombre dado. Equivale a 'Guardar trayectoria' en la interfaz MATLAB.
-    """
+    """Saves the current end-effector trajectory history under the given name."""
     if not robot_state.trajectory:
-        raise HTTPException(status_code=400, detail="No hay trayectoria grabada.")
+        raise HTTPException(status_code=400, detail="No recorded trajectory found.")
     _saved_trajectories[req.name] = list(robot_state.trajectory)
     return {"saved": req.name, "points": len(robot_state.trajectory)}
 
 
-@router.post("/clear", summary="Limpiar historial de trayectoria")
+@router.post("/clear", summary="Clear trajectory history")
 def clear_trajectory(robot_state: RobotState = Depends(get_robot_state)) -> dict:
-    """Limpia el historial de posiciones del EF. Equivale a l=2 en MATLAB."""
+    """Clears the recorded trajectory points history."""
     robot_state.clear_trajectory()
     return {"trajectory": []}
 
 
-@router.get("/list", summary="Listar trayectorias guardadas")
+@router.get("/list", summary="List saved trajectories")
 def list_trajectories() -> dict:
-    """Retorna los nombres de todas las trayectorias guardadas."""
+    """Returns the names of all saved trajectories."""
     return {"trajectories": list(_saved_trajectories.keys())}
 
 
-@router.post("/load", summary="Cargar trayectoria guardada")
+@router.post("/load", summary="Load saved trajectory")
 def load_trajectory(req: LoadTrajectoryRequest, robot_state: RobotState = Depends(get_robot_state)) -> dict:
-    """
-    Carga una trayectoria guardada al historial activo.
-    Equivale a 'Cargar trayectoria' en la interfaz MATLAB.
-    """
+    """Loads a previously saved trajectory into the active trajectory history."""
     if req.name not in _saved_trajectories:
         raise HTTPException(
             status_code=404,
-            detail=f"Trayectoria '{req.name}' no encontrada.",
+            detail=f"Trajectory '{req.name}' not found.",
         )
     robot_state.trajectory = list(_saved_trajectories[req.name])
     return {"loaded": req.name, "points": len(robot_state.trajectory)}

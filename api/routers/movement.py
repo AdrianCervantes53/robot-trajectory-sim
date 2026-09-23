@@ -1,3 +1,8 @@
+﻿"""
+movement.py
+REST router for robot kinematics and manual movements.
+"""
+
 from fastapi import APIRouter, HTTPException, Depends
 
 from api.schemas.movement import JointsRequest, PoseRequest, GripperRequest, ConfigRequest
@@ -6,33 +11,27 @@ from core.state import RobotState
 from kinematics.forward import forward_kinematics
 from kinematics.inverse import inverse_kinematics, SingularityError
 
-
 router = APIRouter(tags=["Movement"])
 
-@router.get("/state", summary="Estado actual del robot")
+
+@router.get("/state", summary="Current robot state")
 def get_state(robot_state: RobotState = Depends(get_robot_state)) -> dict:
-    """Retorna el estado completo del robot: juntas, posición, links y trayectoria."""
+    """Returns the full robot state: joints, position, links, and trajectory."""
     return robot_state.to_dict()
 
 
-@router.post("/joints", summary="Mover a ángulos de junta (FK)")
+@router.post("/joints", summary="Move to joint angles (FK)")
 def move_joints(req: JointsRequest, robot_state: RobotState = Depends(get_robot_state)) -> dict:
-    """
-    Aplica cinemática directa con los ángulos recibidos y actualiza el estado.
-    Equivale a mover los sliders manualmente en la interfaz MATLAB.
-    """
+    """Applies forward kinematics with the requested angles and updates state."""
     fk = forward_kinematics(*req.joints_deg)
     robot_state.apply_fk_result(fk)
     robot_state.record_trajectory_point()
     return robot_state.to_dict()
 
 
-@router.post("/pose", summary="Mover a pose cartesiana (IK)")
+@router.post("/pose", summary="Move to Cartesian pose (IK)")
 def move_pose(req: PoseRequest, robot_state: RobotState = Depends(get_robot_state)) -> dict:
-    """
-    Aplica cinemática inversa para la posición cartesiana dada,
-    mantiene la orientación actual del efector final.
-    """
+    """Applies inverse kinematics for target Cartesian coordinates, keeping current orientation."""
     try:
         ik = inverse_kinematics(
             req.px, req.py, req.pz,
@@ -52,20 +51,16 @@ def move_pose(req: PoseRequest, robot_state: RobotState = Depends(get_robot_stat
     return robot_state.to_dict()
 
 
-@router.post("/gripper", summary="Abrir/cerrar gripper")
+@router.post("/gripper", summary="Open/close gripper")
 def control_gripper(req: GripperRequest, robot_state: RobotState = Depends(get_robot_state)) -> dict:
-    """
-    Cambia el estado del gripper. Si hay Arduino conectado, el módulo
-    hardware/arduino.py envía la señal al servo (pin 11).
-    """
+    """Updates gripper open state and returns the updated full robot state."""
     robot_state.gripper_open = req.open
-    # TODO: llamar a arduino.gripper() cuando hardware/arduino.py esté portado
-    return {"gripper_open": robot_state.gripper_open}
+    return robot_state.to_dict()
 
 
-@router.post("/config", summary="Actualizar configuración de velocidad")
+@router.post("/config", summary="Update speed and duration configuration")
 def update_config(req: ConfigRequest, robot_state: RobotState = Depends(get_robot_state)) -> dict:
-    """Actualiza velocity_pct y/o trajectory_duration del estado global."""
+    """Updates velocity_pct and/or trajectory_duration in global robot state."""
     if req.velocity_pct is not None:
         robot_state.velocity_pct = req.velocity_pct
     if req.trajectory_duration is not None:
