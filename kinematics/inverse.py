@@ -1,24 +1,22 @@
-"""
+﻿"""
 inverse.py
-Cinemática inversa del robot de 6 DOF.
+Inverse kinematics for 6-DOF articulated robot.
 
-MATLAB equivalente: fcinversa.m
+Strategy:
+- q1, q2, q3 -> geometric solution (arm position)
+- q4, q5, q6 -> spherical wrist decoupling recalculating AR with
+  newly found q1..q3, and desired rotation matrix R.
 
-Estrategia
-----------
-- q1, q2, q3 → solución geométrica (posición del EF)
-- q4, q5, q6 → desacoplamiento de muñeca usando las matrices A1/A2/A3
-  de la cinemática directa y la orientación deseada R.
-
-Geometría del robot
--------------------
-L1 = 5  (altura de la base)
-L2 = 5  (eslabón 2)
-L3 = 5  (eslabón 3)
+Robot Geometry:
+L1 = 5.0 (base height)
+L2 = 5.0 (link 2 length)
+L3 = 5.0 (link 3 length)
 """
 
 import numpy as np
 from dataclasses import dataclass
+
+from kinematics.dh import dh_matrix
 
 L1: float = 5.0
 L2: float = 5.0
@@ -26,21 +24,21 @@ L3: float = 5.0
 
 
 class SingularityError(Exception):
-    """Se lanza cuando el punto objetivo está fuera del espacio de trabajo."""
+    """Raised when the target point is outside the workspace or causes a singularity."""
     pass
 
 
 @dataclass
 class InverseKinematicsResult:
     """
-    Resultado de la cinemática inversa.
+    Inverse kinematics computation result.
 
-    Atributos
-    ---------
+    Attributes
+    ----------
     q1_deg .. q6_deg : float
-        Ángulos de las 6 juntas en GRADOS.
+        6 joint angles in degrees.
     joints_deg : list[float]
-        Los 6 ángulos como lista, en el mismo orden.
+        6 joint angles as a list.
     """
     q1_deg: float
     q2_deg: float
@@ -52,24 +50,29 @@ class InverseKinematicsResult:
     @property
     def joints_deg(self) -> list:
         return [
-            self.q1_deg, self.q2_deg, self.q3_deg,
-            self.q4_deg, self.q5_deg, self.q6_deg,
+            float(self.q1_deg), float(self.q2_deg), float(self.q3_deg),
+            float(self.q4_deg), float(self.q5_deg), float(self.q6_deg),
         ]
 
 
 def _rotation_matrix(A: float, B: float, C: float) -> np.ndarray:
     """
-    Construye la matriz de rotación deseada para el efector final.
+    Constructs the target rotation matrix for the end-effector.
 
-    Usa la convención del MATLAB original: R = Rx(A) * Rz(B) * Ry(C)
-    donde A=yaw (Z), B=pitch (Y), C=roll (X) — orden ZYX intrínseco.
+    Intrinsic ZYX convention:
+        R = Rz(A) * Ry(B) * Rx(C)
 
-    Parámetros
+    where:
+        A -> rotation around Z (yaw / alpha)
+        B -> rotation around Y (pitch / beta)
+        C -> rotation around X (roll / gamma)
+
+    Parameters
     ----------
     A, B, C : float
-        Ángulos de orientación en RADIANES.
+        Orientation angles in radians.
     """
-    Rx = np.array([
+    Rz = np.array([
         [np.cos(A), -np.sin(A), 0],
         [np.sin(A),  np.cos(A), 0],
         [0,          0,         1],
@@ -79,12 +82,12 @@ def _rotation_matrix(A: float, B: float, C: float) -> np.ndarray:
         [ 0,         1, 0        ],
         [-np.sin(B), 0, np.cos(B)],
     ])
-    Rz = np.array([
+    Rx = np.array([
         [1, 0,          0         ],
         [0, np.cos(C), -np.sin(C) ],
         [0, np.sin(C),  np.cos(C) ],
     ])
-    return Rx @ Rz @ Ry
+    return Rz @ Ry @ Rx
 
 
 def inverse_kinematics(
@@ -99,45 +102,40 @@ def inverse_kinematics(
     A3: np.ndarray,
 ) -> InverseKinematicsResult:
     """
-    Calcula la cinemática inversa para una pose deseada del efector final.
+    Computes inverse kinematics for a target end-effector pose.
 
-    Parámetros
+    Parameters
     ----------
     px, py, pz : float
-        Posición cartesiana deseada del efector final.
+        Target Cartesian coordinates.
     A, B, C : float
-        Orientación deseada en RADIANES (ángulos alpha, beta, gamma del EF).
+        Target orientation in radians (alpha, beta, gamma - ZYX convention).
     A1, A2, A3 : np.ndarray
-        Matrices DH 4x4 del estado actual del robot (obtenidas de
-        forward_kinematics). Necesarias para el desacoplamiento de muñeca.
+        Current DH matrices (received for compatibility; AR is computed from target q1..q3).
 
-    Retorna
+    Returns
     -------
     InverseKinematicsResult
 
-    Lanza
-    -----
+    Raises
+    ------
     SingularityError
-        Si el punto está fuera del espacio de trabajo o causa singularidad.
+        If the target point is unreachable or causes a kinematic singularity.
     """
     try:
-        # ── Posición: q1, q2, q3 (solución geométrica) ────────────────────
-
+        # Position: q1, q2, q3 (geometric solution)
         r2 = px**2 + py**2
         R2 = r2 + (pz - L1)**2
 
         cos_q3 = (R2 - L2**2 - L3**2) / (2 * L2 * L3)
 
-        # Validar alcanzabilidad antes del clip numérico
+        # Reachability check
         if abs(cos_q3) > 1.0 + 1e-6:
             raise SingularityError(
-                f"Punto ({px:.2f}, {py:.2f}, {pz:.2f}) fuera del espacio de trabajo "
-                f"(cos_q3={cos_q3:.4f} fuera de [-1, 1])."
+                f"Point ({px:.2f}, {py:.2f}, {pz:.2f}) outside workspace (cos_q3={cos_q3:.4f} outside [-1, 1])."
             )
 
-        # Clamp numérico menor para errores de punto flotante (~1e-7)
         cos_q3 = np.clip(cos_q3, -1.0, 1.0)
-
         sin_q3 = np.sqrt(1 - cos_q3**2)
         q3 = np.arctan2(sin_q3, cos_q3)
 
@@ -148,41 +146,43 @@ def inverse_kinematics(
 
         q2 = alfa - beta
         if q2 < 0:
-            # Configuración alternativa (codo arriba/abajo)
+            # Alternative elbow configuration
             q2 = alfa + beta
             q3 = -np.arctan2(sin_q3, cos_q3)
 
-        # ── Orientación: q4, q5, q6 (desacoplamiento de muñeca) ───────────
+        # Orientation: q4, q5, q6 (wrist decoupling)
+        _A1 = dh_matrix(q1, L1, 0,  np.pi / 2)
+        _A2 = dh_matrix(q2, 0,  L2, 0)
+        _A3 = dh_matrix(q3, 0,  L3, 0)
 
-        # Submatrices de rotación 3x3 de las transformaciones acumuladas
-        Aa = A1[:3, :3]
-        Ab = A2[:3, :3]
-        Ac = A3[:3, :3]
+        AR = _A1[:3, :3] @ _A2[:3, :3] @ _A3[:3, :3]
 
-        # Rotación acumulada del brazo (juntas 1-3)
-        AR = Aa @ Ab @ Ac
-
-        # Rotación deseada del efector
+        # Target rotation matrix
         R = _rotation_matrix(A, B, C)
 
-        # Rotación relativa que deben cubrir las juntas de muñeca (4-6)
+        # Relative wrist rotation: MT = AR^T * R
         MT = AR.T @ R
 
-        q4 = np.arctan2(MT[2, 1], MT[1, 1])
-        q5 = np.arctan2(-MT[0, 1], np.sqrt(MT[1, 1]**2 + MT[2, 1]**2))
-        q6 = np.arctan2(MT[0, 2], MT[0, 0])
+        # Analytical extraction for DH wrist sequence:
+        #   A4 = dh(0,  0, 0,  q4)
+        #   A5 = dh(q5, 0, 0, -pi/2)
+        #   A6 = dh(q6, 0, 0,  0)
+        q4 = np.arctan2(MT[2, 2], MT[1, 2])
+        q5 = np.arctan2(-MT[0, 2], np.sqrt(MT[1, 2]**2 + MT[2, 2]**2))
+        q6 = np.arctan2(-MT[0, 1], MT[0, 0])
 
         return InverseKinematicsResult(
-            q1_deg=np.rad2deg(q1),
-            q2_deg=np.rad2deg(q2),
-            q3_deg=np.rad2deg(q3),
-            q4_deg=np.rad2deg(q4),
-            q5_deg=np.rad2deg(q5),
-            q6_deg=np.rad2deg(q6),
+            q1_deg=float(np.rad2deg(q1)),
+            q2_deg=float(np.rad2deg(q2)),
+            q3_deg=float(np.rad2deg(q3)),
+            q4_deg=float(np.rad2deg(q4)),
+            q5_deg=float(np.rad2deg(q5)),
+            q6_deg=float(np.rad2deg(q6)),
         )
 
+    except SingularityError:
+        raise
     except Exception as exc:
         raise SingularityError(
-            f"Punto ({px:.2f}, {py:.2f}, {pz:.2f}) fuera del espacio de trabajo "
-            f"o singularidad detectada."
+            f"Point ({px:.2f}, {py:.2f}, {pz:.2f}) outside workspace or singularity detected."
         ) from exc

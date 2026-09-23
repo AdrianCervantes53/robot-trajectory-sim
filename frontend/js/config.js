@@ -3,7 +3,7 @@
  * Runtime configuration: API base URL and WebSocket URL.
  *
  * Derived from window.location so the simulator works from any device
- * on the network — not just the machine running the server.
+ * on the network - not just the machine running the server.
  */
 
 const _host = window.location.hostname;

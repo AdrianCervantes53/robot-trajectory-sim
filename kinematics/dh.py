@@ -1,8 +1,6 @@
-"""
+﻿"""
 dh.py
-Matriz de transformación homogénea Denavit-Hartenberg.
-
-MATLAB equivalente: fDH.m
+Denavit-Hartenberg 4x4 homogeneous transformation matrix.
 """
 
 import numpy as np
@@ -10,23 +8,23 @@ import numpy as np
 
 def dh_matrix(theta: float, d: float, a: float, alpha: float) -> np.ndarray:
     """
-    Genera la matriz de transformación homogénea 4x4 usando parámetros DH estándar.
+    Generates standard 4x4 DH homogeneous transformation matrix.
 
-    Parámetros
+    Parameters
     ----------
     theta : float
-        Ángulo de junta (radianes).
+        Joint angle in radians.
     d : float
-        Desplazamiento a lo largo del eje Z anterior.
+        Offset along previous Z axis.
     a : float
-        Longitud del eslabón (distancia entre ejes Z).
+        Link length (distance between Z axes).
     alpha : float
-        Ángulo de torsión entre ejes Z (radianes).
+        Twist angle between Z axes in radians.
 
-    Retorna
+    Returns
     -------
     np.ndarray
-        Matriz de transformación homogénea 4x4.
+        4x4 homogeneous transformation matrix.
     """
     ct = np.cos(theta)
     st = np.sin(theta)

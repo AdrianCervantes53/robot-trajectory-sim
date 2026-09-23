@@ -1,9 +1,11 @@
-from pydantic import BaseModel, Field
+﻿from pydantic import BaseModel, Field
+
 
 class SaveTrajectoryRequest(BaseModel):
-    """Guardar la trayectoria grabada con un nombre."""
-    name: str = Field(..., description="Identificador de la trayectoria.")
+    """Save recorded trajectory by name."""
+    name: str = Field(..., description="Trajectory name identifier.")
+
 
 class LoadTrajectoryRequest(BaseModel):
-    """Cargar una trayectoria guardada por nombre."""
-    name: str
+    """Load saved trajectory by name."""
+    name: str = Field(..., description="Trajectory name identifier.")

@@ -1,16 +1,16 @@
-<!DOCTYPE html>
-<html lang="es">
+﻿<!DOCTYPE html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Robot 6-DOF — Simulator</title>
+  <title>Robot 6-DOF - Simulator</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
-<!-- ── Top bar ──────────────────────────────────────── -->
+<!-- Top bar -->
 <header id="topbar">
   <h1>RoboSim</h1>
   <span class="topbar-tag">6-DOF</span>
@@ -21,49 +21,49 @@
   </div>
 </header>
 
-<!-- ── 3D Viewport ──────────────────────────────────── -->
+<!-- 3D Viewport -->
 <main id="viewport">
   <canvas id="c"></canvas>
   <div id="hud">
-    <div class="hud-row">EF &nbsp;<span id="h-px">—</span> &nbsp;<span id="h-py">—</span> &nbsp;<span id="h-pz">—</span></div>
+    <div class="hud-row">EF &nbsp;<span id="h-px">-</span> &nbsp;<span id="h-py">-</span> &nbsp;<span id="h-pz">-</span></div>
     <div class="hud-row" style="margin-top:2px">
-      <span style="color:var(--link1)">■</span> L1 &nbsp;
-      <span style="color:var(--link2)">■</span> L2 &nbsp;
-      <span style="color:var(--link3)">■</span> L3
+      <span style="color:var(--link1)">#</span> L1 &nbsp;
+      <span style="color:var(--link2)">#</span> L2 &nbsp;
+      <span style="color:var(--link3)">#</span> L3
     </div>
   </div>
 </main>
 
-<!-- ── Control panel ────────────────────────────────── -->
+<!-- Control panel -->
 <aside id="panel">
 <div id="panel-scroll">
 
-  <!-- Juntas manuales -->
+  <!-- Manual Joints -->
   <div class="panel-section">
-    <div class="section-title">Juntas</div>
+    <div class="section-title">Joints</div>
     <div id="joints-ctrl"></div>
     <div class="btn-row">
       <button class="btn" id="btn-home">Home</button>
-      <button class="btn danger" id="btn-clear-traj">Clear traj</button>
+      <button class="btn danger" id="btn-clear-traj">Clear Trajectory</button>
     </div>
   </div>
 
-  <!-- Pose cartesiana -->
+  <!-- Cartesian Pose -->
   <div class="panel-section">
-    <div class="section-title">Pose (IK)</div>
+    <div class="section-title">Cartesian Pose (IK)</div>
     <div class="pose-grid">
       <div class="pose-field"><label>PX</label><input type="number" id="ip-px" step="0.1" value="10"></div>
       <div class="pose-field"><label>PY</label><input type="number" id="ip-py" step="0.1" value="0"></div>
       <div class="pose-field"><label>PZ</label><input type="number" id="ip-pz" step="0.1" value="5"></div>
     </div>
     <div class="btn-row">
-      <button class="btn primary" id="btn-move-pose">Move to pose</button>
+      <button class="btn primary" id="btn-move-pose">Move to Pose</button>
     </div>
   </div>
 
-  <!-- Trayectorias -->
+  <!-- Trajectories -->
   <div class="panel-section">
-    <div class="section-title">Trayectorias</div>
+    <div class="section-title">Trajectories</div>
 
     <div class="btn-row" style="margin-bottom:6px">
       <button class="btn" id="btn-ptp">PTP</button>
@@ -74,14 +74,14 @@
     <!-- PTP target -->
     <div id="extra-ptp" class="traj-extra">
       <div class="pose-grid">
-        <div class="pose-field"><label>q1 °</label><input type="number" id="ptp-q1" value="45"></div>
-        <div class="pose-field"><label>q2 °</label><input type="number" id="ptp-q2" value="30"></div>
-        <div class="pose-field"><label>q3 °</label><input type="number" id="ptp-q3" value="20"></div>
+        <div class="pose-field"><label>q1 (deg)</label><input type="number" id="ptp-q1" value="45"></div>
+        <div class="pose-field"><label>q2 (deg)</label><input type="number" id="ptp-q2" value="30"></div>
+        <div class="pose-field"><label>q3 (deg)</label><input type="number" id="ptp-q3" value="20"></div>
       </div>
       <div class="pose-grid">
-        <div class="pose-field"><label>q4 °</label><input type="number" id="ptp-q4" value="0"></div>
-        <div class="pose-field"><label>q5 °</label><input type="number" id="ptp-q5" value="0"></div>
-        <div class="pose-field"><label>q6 °</label><input type="number" id="ptp-q6" value="0"></div>
+        <div class="pose-field"><label>q4 (deg)</label><input type="number" id="ptp-q4" value="0"></div>
+        <div class="pose-field"><label>q5 (deg)</label><input type="number" id="ptp-q5" value="0"></div>
+        <div class="pose-field"><label>q6 (deg)</label><input type="number" id="ptp-q6" value="0"></div>
       </div>
     </div>
 
@@ -96,24 +96,24 @@
 
     <!-- CIR target -->
     <div id="extra-cir" class="traj-extra">
-      <div style="font-size:9px;color:var(--text-lo);margin-bottom:4px;letter-spacing:.06em">PUNTO MEDIO</div>
+      <div style="font-size:9px;color:var(--text-lo);margin-bottom:4px;letter-spacing:.06em">MID POINT</div>
       <div class="pose-grid">
         <div class="pose-field"><label>PX</label><input type="number" id="cir-mx" step="0.1" value="4"></div>
         <div class="pose-field"><label>PY</label><input type="number" id="cir-my" step="0.1" value="4"></div>
         <div class="pose-field"><label>PZ</label><input type="number" id="cir-mz" step="0.1" value="5"></div>
       </div>
-      <div style="font-size:9px;color:var(--text-lo);margin-bottom:4px;letter-spacing:.06em">PUNTO FINAL</div>
+      <div style="font-size:9px;color:var(--text-lo);margin-bottom:4px;letter-spacing:.06em">END POINT</div>
       <div class="pose-grid">
         <div class="pose-field"><label>PX</label><input type="number" id="cir-fx" step="0.1" value="7"></div>
         <div class="pose-field"><label>PY</label><input type="number" id="cir-fy" step="0.1" value="0"></div>
         <div class="pose-field"><label>PZ</label><input type="number" id="cir-fz" step="0.1" value="5"></div>
       </div>
       <div class="pose-field" style="margin-bottom:4px">
-        <label>Plano</label>
+        <label>Plane</label>
         <select class="traj-select" id="cir-plane">
-          <option value="1">XY (plano 1)</option>
-          <option value="2">XZ (plano 2)</option>
-          <option value="3">YZ (plano 3)</option>
+          <option value="1">XY (Plane 1)</option>
+          <option value="2">XZ (Plane 2)</option>
+          <option value="3">YZ (Plane 3)</option>
         </select>
       </div>
     </div>
@@ -124,45 +124,45 @@
     </div>
   </div>
 
-  <!-- Configuración -->
+  <!-- Configuration -->
   <div class="panel-section">
-    <div class="section-title">Config</div>
+    <div class="section-title">Configuration</div>
     <div class="config-row">
-      <div class="pose-field"><label>Vel % (PTP)</label><input type="number" id="cfg-vel" value="50" min="0" max="100"></div>
-      <div class="pose-field"><label>Duración (s)</label><input type="number" id="cfg-dur" value="2" min="0.1" step="0.1"></div>
+      <div class="pose-field"><label>Speed % (PTP)</label><input type="number" id="cfg-vel" value="50" min="0" max="100"></div>
+      <div class="pose-field"><label>Duration (s)</label><input type="number" id="cfg-dur" value="2" min="0.1" step="0.1"></div>
     </div>
-    <button class="btn" id="btn-config" style="width:100%">Apply config</button>
+    <button class="btn" id="btn-config" style="width:100%">Apply Config</button>
   </div>
 
   <!-- Gripper -->
   <div class="panel-section">
     <div class="section-title">Gripper</div>
-    <button class="gripper-btn open" id="gripper-btn">● Open</button>
+    <button class="gripper-btn open" id="gripper-btn">Open</button>
   </div>
 
-  <!-- Estado en vivo -->
+  <!-- Live state -->
   <div class="panel-section">
-    <div class="section-title">Estado</div>
+    <div class="section-title">Live State</div>
     <table class="live-table">
-      <tr><td>q1</td><td id="lv-q1">—</td></tr>
-      <tr><td>q2</td><td id="lv-q2">—</td></tr>
-      <tr><td>q3</td><td id="lv-q3">—</td></tr>
-      <tr><td>q4</td><td id="lv-q4">—</td></tr>
-      <tr><td>q5</td><td id="lv-q5">—</td></tr>
-      <tr><td>q6</td><td id="lv-q6">—</td></tr>
+      <tr><td>q1</td><td id="lv-q1">-</td></tr>
+      <tr><td>q2</td><td id="lv-q2">-</td></tr>
+      <tr><td>q3</td><td id="lv-q3">-</td></tr>
+      <tr><td>q4</td><td id="lv-q4">-</td></tr>
+      <tr><td>q5</td><td id="lv-q5">-</td></tr>
+      <tr><td>q6</td><td id="lv-q6">-</td></tr>
       <tr><td colspan="2" style="padding-top:6px"></td></tr>
-      <tr><td>px</td><td id="lv-px">—</td></tr>
-      <tr><td>py</td><td id="lv-py">—</td></tr>
-      <tr><td>pz</td><td id="lv-pz">—</td></tr>
+      <tr><td>px</td><td id="lv-px">-</td></tr>
+      <tr><td>py</td><td id="lv-py">-</td></tr>
+      <tr><td>pz</td><td id="lv-pz">-</td></tr>
     </table>
   </div>
 
-  <!-- Guardar / cargar trayectorias -->
+  <!-- Save / Load Trajectories -->
   <div class="panel-section">
-    <div class="section-title">Guardar trayectoria</div>
+    <div class="section-title">Save / Load Trajectories</div>
     <div class="pose-field" style="margin-bottom:4px">
-      <label>Nombre</label>
-      <input type="text" id="traj-name" placeholder="mi_trayectoria"
+      <label>Trajectory Name</label>
+      <input type="text" id="traj-name" placeholder="my_trajectory"
              style="width:100%;background:var(--bg);border:1px solid var(--border2);color:var(--text-hi);font-family:var(--font-mono);font-size:11px;padding:4px 6px;outline:none">
     </div>
     <div class="btn-row">
@@ -172,24 +172,24 @@
     <ul id="saved-list"></ul>
   </div>
 
-</div><!-- /panel-scroll -->
+</div>
 </aside>
 
-<!-- ── Status bar ────────────────────────────────────── -->
+<!-- Status bar -->
 <footer id="statusbar">
   <span>RoboSim v1.0</span>
   <span class="sep">|</span>
   <span>6-DOF Articulated</span>
   <span class="sep">|</span>
   <span>L1=L2=L3=5</span>
-  <span id="status-msg">Connecting…</span>
+  <span id="status-msg">Connecting...</span>
 </footer>
 
-<!-- ── Vendor scripts (global, no module) ────────────── -->
+<!-- Vendor scripts -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 
-<!-- ── App entry point ───────────────────────────────── -->
+<!-- App entry point -->
 <script type="module" src="js/main.js"></script>
 
 </body>

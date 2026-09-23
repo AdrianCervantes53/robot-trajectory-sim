@@ -1,7 +1,12 @@
+﻿"""
+ws_trajectory.py
+WebSocket router for streaming real-time robot trajectories.
+"""
+
 import json
 import asyncio
 
-from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from kinematics.inverse import SingularityError
 from trajectory.ptp import ptp_trajectory
@@ -10,26 +15,31 @@ from trajectory.circular import circular_trajectory
 
 router = APIRouter(tags=["WebSocket-Trajectory"])
 
+# Time step between frames in seconds (20 FPS).
+# asyncio.sleep(FRAME_DT) paces the simulation in real time according to duration and speed settings.
+FRAME_DT: float = 0.05
+
+
 @router.websocket("/ws")
 async def websocket_trajectory(websocket: WebSocket):
     """
-    WebSocket para ejecutar trayectorias en tiempo real.
+    WebSocket endpoint to execute and stream trajectories in real time.
 
-    Protocolo entrante (JSON):
+    Inbound protocol (JSON):
       PTP:      { "type": "ptp",      "q_end": [q1..q6] }
-      Lineal:   { "type": "linear",   "p_end": [px,py,pz] }
+      Linear:   { "type": "linear",   "p_end": [px,py,pz] }
       Circular: { "type": "circular", "p_mid": [px,py,pz],
                                       "p_end": [px,py,pz],
                                       "plane": 1 }
 
-    Cada frame emitido al cliente:
+    Outbound stream:
       { ...RobotState.to_dict(), "frame_type": "trajectory_frame" }
 
-    Último frame:
+    Last frame:
       { ...RobotState.to_dict(), "frame_type": "trajectory_end" }
 
-    En caso de error:
-      { "frame_type": "error", "detail": "mensaje" }
+    On error:
+      { "frame_type": "error", "detail": "message" }
     """
     await websocket.accept()
     robot_state = websocket.app.state.robot_state
@@ -47,6 +57,7 @@ async def websocket_trajectory(websocket: WebSocket):
                         q_start_deg=robot_state.joints_deg,
                         q_end_deg=msg["q_end"],
                         velocity_pct=robot_state.velocity_pct,
+                        dt=FRAME_DT,
                     )
 
                 elif traj_type == "linear":
@@ -55,6 +66,7 @@ async def websocket_trajectory(websocket: WebSocket):
                         p_end=msg["p_end"],
                         q_current_deg=robot_state.joints_deg,
                         duration=robot_state.trajectory_duration,
+                        dt=FRAME_DT,
                     )
 
                 elif traj_type == "circular":
@@ -64,16 +76,18 @@ async def websocket_trajectory(websocket: WebSocket):
                         p_end=msg["p_end"],
                         q_current_deg=robot_state.joints_deg,
                         plane=msg.get("plane", 1),
+                        duration=robot_state.trajectory_duration,
+                        dt=FRAME_DT,
                     )
 
                 else:
                     await websocket.send_text(json.dumps({
                         "frame_type": "error",
-                        "detail": f"Tipo de trayectoria desconocido: '{traj_type}'.",
+                        "detail": f"Unknown trajectory type: '{traj_type}'.",
                     }))
                     continue
 
-                # Emitir frames conforme se calculan
+                # Stream frames in real time with FRAME_DT pacing
                 last_frame = None
                 for fk_result in gen:
                     robot_state.apply_fk_result(fk_result)
@@ -84,10 +98,9 @@ async def websocket_trajectory(websocket: WebSocket):
                     await websocket.send_text(json.dumps(frame, default=float))
                     last_frame = frame
 
-                    # Ceder el event loop para no bloquear otras corrutinas
-                    await asyncio.sleep(0)
+                    await asyncio.sleep(FRAME_DT)
 
-                # Marcar fin de trayectoria
+                # Mark end of trajectory
                 if last_frame is not None:
                     last_frame["frame_type"] = "trajectory_end"
                     await websocket.send_text(json.dumps(last_frame, default=float))
@@ -100,8 +113,8 @@ async def websocket_trajectory(websocket: WebSocket):
             except (KeyError, ValueError) as e:
                 await websocket.send_text(json.dumps({
                     "frame_type": "error",
-                    "detail": f"Mensaje inválido: {e}",
+                    "detail": f"Invalid message: {e}",
                 }))
 
     except WebSocketDisconnect:
-        print("Cliente WebSocket desconectado.")
+        pass

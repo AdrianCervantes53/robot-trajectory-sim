@@ -1,57 +1,32 @@
 """
 circular.py
-Trayectoria circular en espacio cartesiano (3 puntos definen el arco).
+Circular trajectory generation in Cartesian space (3 points define the arc).
 
-MATLAB equivalente: CIR2D.m
-
-Estrategia
-----------
-Dados 3 puntos en el espacio (inicio, intermedio, fin), se calcula el
-círculo que los contiene usando la fórmula directa del circuncentro —
-sin álgebra simbólica (el MATLAB original usaba `solve` con sympy).
-El arco se recorre en dos tramos: po→pa y pa→pf, respetando la
-dirección y sentido correctos para pasar por el punto intermedio.
-
-El movimiento es siempre en un plano 2D proyectado según el parámetro
-`plane`: XY (1), XZ (2), YZ (3).
-
-Planos soportados
------------------
-  plane=1  →  XY  (varía px, py; pz constante)
-  plane=2  →  XZ  (varía px, pz; py constante)
-  plane=3  →  YZ  (varía py, pz; px constante)
+Supported planes:
+  plane=1 -> XY (varies px, py; constant pz)
+  plane=2 -> XZ (varies px, pz; constant py)
+  plane=3 -> YZ (varies py, pz; constant px)
 """
 
 import numpy as np
-from typing import Generator
+from typing import Generator, Optional
 
 from kinematics.forward import forward_kinematics, ForwardKinematicsResult
 from kinematics.inverse import inverse_kinematics, SingularityError
 
 
-# ─────────────────────────────────────────────────────────────
-# Geometría del círculo
-# ─────────────────────────────────────────────────────────────
-
 def _circumcenter(p1: np.ndarray, p2: np.ndarray, p3: np.ndarray):
     """
-    Calcula el centro y radio del círculo que pasa por 3 puntos 2D.
+    Computes center and radius of the circle passing through 3 2D points.
 
-    Reemplaza el `solve(E1, E2, E3)` simbólico de MATLAB con la fórmula
-    directa del circuncentro. Más rápido y sin dependencias simbólicas.
-
-    Parámetros
-    ----------
-    p1, p2, p3 : np.ndarray
-        Puntos 2D [x, y].
-
-    Retorna
+    Returns
     -------
     (center, radius) : (np.ndarray shape (2,), float)
 
-    Lanza
-    -----
-    ValueError si los 3 puntos son colineales (radio infinito).
+    Raises
+    ------
+    ValueError
+        If points are collinear.
     """
     ax, ay = p1
     bx, by = p2
@@ -59,7 +34,7 @@ def _circumcenter(p1: np.ndarray, p2: np.ndarray, p3: np.ndarray):
 
     D = 2 * (ax * (by - cy) + bx * (cy - ay) + cx * (ay - by))
     if abs(D) < 1e-10:
-        raise ValueError("Los 3 puntos son colineales — no definen un círculo único.")
+        raise ValueError("Points are collinear (colineales) - cannot define a unique circle.")
 
     ux = ((ax**2 + ay**2) * (by - cy) +
           (bx**2 + by**2) * (cy - ay) +
@@ -76,37 +51,31 @@ def _circumcenter(p1: np.ndarray, p2: np.ndarray, p3: np.ndarray):
 
 def _arc_direction(theta1: float, theta2: float, theta3: float):
     """
-    Determina la dirección (±1) y los ángulos ajustados para recorrer
-    el arco theta1 → theta2 → theta3 pasando por el punto intermedio.
+    Determines direction (+/-1) and adjusted angles to traverse
+    the arc theta1 -> theta2 -> theta3 through the intermediate point.
 
-    Replica la lógica de los 6 casos if/elseif de CIR2D.m.
-
-    Retorna
+    Returns
     -------
-    (k, theta2_adj, theta3_adj) donde k=+1 antihorario, k=-1 horario.
+    (k, theta2_adj, theta3_adj) where k=+1 counterclockwise, k=-1 clockwise.
     """
     t1, t2, t3 = theta1, theta2, theta3
 
-    if t3 > t2 > t1:          # caso 1 — antihorario directo
+    if t3 > t2 > t1:
         return +1, t2, t3
-    elif t1 > t2 > t3:        # caso 2 — horario directo
+    elif t1 > t2 > t3:
         return -1, t2, t3
-    elif t1 > t3 > t2:        # caso 3
+    elif t1 > t3 > t2:
         return +1, t2 + 360, t3
-    elif t2 > t3 > t1:        # caso 4
+    elif t2 > t3 > t1:
         return -1, t2 - 360, t3
-    elif t2 > t1 > t3:        # caso 5
+    elif t2 > t1 > t3:
         return +1, t2, t3 + 360
-    else:                      # caso 6  (t3 > t1 > t2)
+    else:
         return -1, t2, t3 - 360
 
 
-# ─────────────────────────────────────────────────────────────
-# Proyección de plano
-# ─────────────────────────────────────────────────────────────
-
 def _project(p_3d: list, plane: int):
-    """Extrae las 2 coordenadas activas según el plano seleccionado."""
+    """Extracts the 2 active planar coordinates according to plane."""
     px, py, pz = p_3d
     if plane == 1:
         return np.array([px, py])
@@ -117,10 +86,7 @@ def _project(p_3d: list, plane: int):
 
 
 def _unproject(xy: np.ndarray, p_ref: list, plane: int) -> tuple:
-    """
-    Reconstruye (px, py, pz) a partir de las 2 coordenadas del arco
-    y la coordenada constante tomada de la posición de referencia.
-    """
+    """Reconstructs (px, py, pz) from the 2 active planar coordinates and reference position."""
     px_ref, py_ref, pz_ref = p_ref
     if plane == 1:
         return xy[0], xy[1], pz_ref
@@ -130,66 +96,73 @@ def _unproject(xy: np.ndarray, p_ref: list, plane: int) -> tuple:
         return px_ref, xy[0], xy[1]
 
 
-# ─────────────────────────────────────────────────────────────
-# Trayectoria circular
-# ─────────────────────────────────────────────────────────────
-
 def circular_trajectory(
     p_start: list,
     p_mid: list,
     p_end: list,
     q_current_deg: list,
     plane: int = 1,
-    step_deg: float = 1.0,
+    duration: float = 2.0,
+    dt: float = 0.05,
+    step_deg: Optional[float] = None,
 ) -> Generator[ForwardKinematicsResult, None, None]:
     """
-    Genera la trayectoria circular como secuencia de estados FK.
+    Generates a circular Cartesian trajectory as a sequence of FK results.
 
-    Parámetros
+    Parameters
     ----------
     p_start : list[float]
-        Posición inicial [px, py, pz] del efector final.
+        Start position [px, py, pz].
     p_mid : list[float]
-        Punto intermedio [px, py, pz] por donde pasa el arco.
+        Intermediate waypoint [px, py, pz].
     p_end : list[float]
-        Posición final [px, py, pz] del efector final.
+        End position [px, py, pz].
     q_current_deg : list[float]
-        Ángulos actuales [q1..q6] en GRADOS.
+        Current joint angles [q1..q6] in degrees.
     plane : int
-        Plano de movimiento: 1=XY, 2=XZ, 3=YZ.
-    step_deg : float
-        Incremento angular en grados por paso (1° en el MATLAB original).
+        Motion plane: 1=XY, 2=XZ, 3=YZ.
+    duration : float
+        Total trajectory duration in seconds.
+    dt : float
+        Time step between frames in seconds.
+    step_deg : float, optional
+        Angular step in degrees. Overrides duration/dt division if provided.
 
     Yields
     ------
     ForwardKinematicsResult
-        Estado completo del robot en cada instante del arco.
+        Robot state at each point along the arc.
 
-    Lanza
-    -----
+    Raises
+    ------
     ValueError
-        Si los 3 puntos son colineales.
+        If the 3 points are collinear.
     SingularityError
-        Si algún punto del arco está fuera del espacio de trabajo.
+        If an arc point falls outside the workspace.
     """
-    # Proyectar los 3 puntos al plano seleccionado
     pt1 = _project(p_start, plane)
     pt2 = _project(p_mid,   plane)
     pt3 = _project(p_end,   plane)
 
-    # Centro y radio del círculo
     center, radius = _circumcenter(pt1, pt2, pt3)
     xc, yc = center
 
-    # Ángulos de cada punto respecto al centro (en grados)
     theta1 = np.rad2deg(np.arctan2(pt1[1] - yc, pt1[0] - xc))
     theta2 = np.rad2deg(np.arctan2(pt2[1] - yc, pt2[0] - xc))
     theta3 = np.rad2deg(np.arctan2(pt3[1] - yc, pt3[0] - xc))
 
-    # Dirección y ángulos ajustados para seguir el arco correctamente
     k, theta2_adj, theta3_adj = _arc_direction(theta1, theta2, theta3)
 
-    # Orientación constante (q4, q5, q6) durante toda la trayectoria
+    arc_total_deg = abs(theta2_adj - theta1) + abs(theta3_adj - theta2_adj)
+    if arc_total_deg < 1e-6:
+        arc_total_deg = 360.0
+
+    if step_deg is not None and step_deg > 0:
+        step = float(step_deg)
+    else:
+        n_steps = max(int(duration / dt), 1)
+        step = arc_total_deg / n_steps
+
     q4, q5, q6 = q_current_deg[3], q_current_deg[4], q_current_deg[5]
 
     fk_init = forward_kinematics(*q_current_deg)
@@ -198,10 +171,8 @@ def circular_trajectory(
     gamma = fk_init.orientation["gamma"]
 
     def _step(theta_deg: float) -> ForwardKinematicsResult:
-        """Calcula IK+FK para un ángulo theta en el arco."""
         nonlocal q_current_deg
 
-        # Punto en el arco (coordenadas 2D del plano)
         arc_x = radius * np.cos(np.deg2rad(theta_deg)) + xc
         arc_y = radius * np.sin(np.deg2rad(theta_deg)) + yc
 
@@ -218,19 +189,17 @@ def circular_trajectory(
         q_current_deg = fk.joints_deg
         return fk
 
-    # ── Tramo 1: theta1 → theta2_adj ──────────────────────────────────────
+    # Segment 1: theta1 -> theta2_adj
     theta = theta1
     while (k > 0 and theta <= theta2_adj) or (k < 0 and theta >= theta2_adj):
         yield _step(theta)
-        theta += k * step_deg
+        theta += k * step
 
-    # ── Tramo 2: theta2_adj → theta3_adj ──────────────────────────────────
-    # Los ángulos se restauran al rango original antes del segundo tramo
-    # (equivalente a los bloques if cambio==0/1 de CIR2D.m)
+    # Segment 2: theta2_adj -> theta3_adj
     theta = theta2_adj
     while (k > 0 and theta <= theta3_adj) or (k < 0 and theta >= theta3_adj):
         yield _step(theta)
-        theta += k * step_deg
+        theta += k * step
 
-    # Frame final exacto en p_end
+    # Final frame at p_end
     yield _step(theta3)
