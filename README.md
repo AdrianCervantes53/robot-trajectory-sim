@@ -12,6 +12,11 @@ Simulador cinemático de un brazo robótico de 6 grados de libertad, portado des
 | Frontend | Three.js — ES Modules nativos, sin build tools |
 | Tests | Pytest — 101 tests |
 
+## Static Portfolio Demo
+
+The repository also includes a standalone browser-only portfolio demo in `static-demo/`.
+It runs the robot kinematics and trajectories locally in JavaScript, without calling the FastAPI API or controlling hardware. See `static-demo/README.md` for local development and Cloudflare Pages deployment settings.
+
 ## Estructura
 
 ```

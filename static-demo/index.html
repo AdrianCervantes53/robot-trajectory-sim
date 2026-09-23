@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Interactive client-side 6-DOF robot kinematics simulator." />
+    <title>RoboSim | Static Demo</title>
+  </head>
+  <body>
+    <header id="topbar">
+      <h1>RoboSim</h1>
+      <span class="topbar-tag">6-DOF</span>
+      <span class="topbar-tag">Client-side simulator</span>
+      <div id="conn-status">
+        <span class="dot on" id="status-dot"></span>
+        <span id="mode-label">Local simulation</span>
+      </div>
+    </header>
+
+    <main id="viewport">
+      <canvas id="robot-canvas"></canvas>
+      <div id="hud">
+        <div>EF <span id="hud-position">--</span></div>
+        <div>All calculations run in your browser</div>
+      </div>
+    </main>
+
+    <aside id="panel">
+      <div id="panel-scroll">
+        <section class="panel-section">
+          <h2>Joints</h2>
+          <div id="joint-controls"></div>
+          <div class="button-row">
+            <button class="button" id="home-button">Home</button>
+            <button class="button danger" id="clear-button">Clear trail</button>
+          </div>
+        </section>
+
+        <section class="panel-section">
+          <h2>Pose (IK)</h2>
+          <div class="input-grid">
+            <label>PX<input id="pose-px" type="number" step="0.1" value="10" /></label>
+            <label>PY<input id="pose-py" type="number" step="0.1" value="0" /></label>
+            <label>PZ<input id="pose-pz" type="number" step="0.1" value="5" /></label>
+          </div>
+          <button class="button primary full" id="pose-button">Move to pose</button>
+        </section>
+
+        <section class="panel-section">
+          <h2>Trajectories</h2>
+          <div class="button-row">
+            <button class="button trajectory-button" data-trajectory="ptp">PTP</button>
+            <button class="button trajectory-button" data-trajectory="linear">LIN</button>
+            <button class="button trajectory-button" data-trajectory="circular">CIR</button>
+          </div>
+          <div class="trajectory-inputs" id="ptp-inputs">
+            <div class="input-grid">
+              <label>Q1<input id="ptp-q1" type="number" value="45" /></label>
+              <label>Q2<input id="ptp-q2" type="number" value="30" /></label>
+              <label>Q3<input id="ptp-q3" type="number" value="20" /></label>
+              <label>Q4<input id="ptp-q4" type="number" value="0" /></label>
+              <label>Q5<input id="ptp-q5" type="number" value="0" /></label>
+              <label>Q6<input id="ptp-q6" type="number" value="0" /></label>
+            </div>
+          </div>
+          <div class="trajectory-inputs hidden" id="linear-inputs">
+            <div class="input-grid">
+              <label>PX<input id="linear-px" type="number" step="0.1" value="8" /></label>
+              <label>PY<input id="linear-py" type="number" step="0.1" value="3" /></label>
+              <label>PZ<input id="linear-pz" type="number" step="0.1" value="7" /></label>
+            </div>
+          </div>
+          <div class="trajectory-inputs hidden" id="circular-inputs">
+            <p class="input-caption">Intermediate point</p>
+            <div class="input-grid">
+              <label>PX<input id="circular-mx" type="number" step="0.1" value="4" /></label>
+              <label>PY<input id="circular-my" type="number" step="0.1" value="4" /></label>
+              <label>PZ<input id="circular-mz" type="number" step="0.1" value="5" /></label>
+            </div>
+            <p class="input-caption">End point</p>
+            <div class="input-grid">
+              <label>PX<input id="circular-fx" type="number" step="0.1" value="7" /></label>
+              <label>PY<input id="circular-fy" type="number" step="0.1" value="0" /></label>
+              <label>PZ<input id="circular-fz" type="number" step="0.1" value="5" /></label>
+            </div>
+            <label class="select-label">Plane
+              <select id="circular-plane"><option value="1">XY</option><option value="2">XZ</option><option value="3">YZ</option></select>
+            </label>
+          </div>
+          <div class="button-row">
+            <button class="button primary" id="run-button">Run</button>
+            <button class="button" id="stop-button">Stop</button>
+          </div>
+        </section>
+
+        <section class="panel-section">
+          <h2>Configuration</h2>
+          <div class="input-grid two-columns">
+            <label>Velocity %<input id="velocity-input" type="number" min="0" max="100" value="50" /></label>
+            <label>Duration (s)<input id="duration-input" type="number" min="0.1" step="0.1" value="2" /></label>
+          </div>
+          <button class="button full" id="config-button">Apply configuration</button>
+        </section>
+
+        <section class="panel-section">
+          <h2>Gripper</h2>
+          <button class="gripper-button open" id="gripper-button">Open</button>
+        </section>
+
+        <section class="panel-section">
+          <h2>Live state</h2>
+          <table id="state-table"><tbody></tbody></table>
+        </section>
+
+        <section class="panel-section">
+          <h2>Local trajectories</h2>
+          <label>Trajectory name<input id="trajectory-name" type="text" maxlength="40" placeholder="my_trajectory" /></label>
+          <div class="button-row">
+            <button class="button" id="save-button">Save</button>
+            <button class="button" id="refresh-button">Refresh</button>
+          </div>
+          <ul id="saved-list"></ul>
+        </section>
+      </div>
+    </aside>
+
+    <footer id="statusbar"><span>RoboSim static portfolio demo</span><span id="status-message">Ready</span></footer>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
