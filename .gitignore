@@ -47,7 +47,9 @@ Thumbs.db
 
 *.pdf
 
+# =========================
 # Logs
+# =========================
 static-demo/logs
 static-demo/*.log
 static-demo/npm-debug.log*
