@@ -46,3 +46,17 @@ Thumbs.db
 
 
 *.pdf
+
+# Logs
+static-demo/logs
+static-demo/*.log
+static-demo/npm-debug.log*
+static-demo/yarn-debug.log*
+static-demo/yarn-error.log*
+static-demo/pnpm-debug.log*
+static-demo/lerna-debug.log*
+
+static-demo/node_modules
+static-demo/dist
+static-demo/dist-ssr
+static-demo/*.local
